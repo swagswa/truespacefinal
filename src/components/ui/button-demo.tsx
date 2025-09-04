@@ -60,7 +60,7 @@ function ButtonAsChild() {
   )
 }
 
-export default {
+const ButtonComponents = {
   ButtonDemo,
   ButtonSecondary,
   ButtonDestructive,
@@ -71,4 +71,6 @@ export default {
   ButtonWithIcon,
   ButtonLoading,
   ButtonAsChild,
-}
+};
+
+export default ButtonComponents;

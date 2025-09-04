@@ -1,4 +1,3 @@
-import { cn } from "@/lib/utils"
 import { StarBorder } from "@/components/ui/star-border"
 
 export function StarBorderDemo() {

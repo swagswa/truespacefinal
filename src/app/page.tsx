@@ -3,7 +3,6 @@
 import { BeamsBackground } from "@/components/ui/beams-background";
 import { Button } from "@/components/ui/button";
 import { Code, Brain, Palette, BarChart3, Shield, Rocket } from "lucide-react";
-import Link from "next/link";
 import Image from "next/image";
 
 export default function Home() {
