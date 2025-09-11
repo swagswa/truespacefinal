@@ -175,12 +175,12 @@ export function BeamsBackground({
         >
             <canvas
                 ref={canvasRef}
-                className="absolute inset-0"
-                style={{ filter: "blur(15px)" }}
+                className="absolute inset-0 z-0"
+                style={{ filter: "blur(15px)", pointerEvents: "none" }}
             />
 
             <motion.div
-                className="absolute inset-0 bg-neutral-950/5"
+                className="absolute inset-0 bg-neutral-950/5 z-0"
                 animate={{
                     opacity: [0.05, 0.15, 0.05],
                 }}
@@ -191,6 +191,7 @@ export function BeamsBackground({
                 }}
                 style={{
                     backdropFilter: "blur(50px)",
+                    pointerEvents: "none"
                 }}
             />
             

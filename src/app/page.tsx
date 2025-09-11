@@ -4,8 +4,11 @@ import { BeamsBackground } from "@/components/ui/beams-background";
 import { Button } from "@/components/ui/button";
 import { Code, Brain, Palette, BarChart3, Shield, Rocket } from "lucide-react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 
 export default function Home() {
+  const router = useRouter();
+
   return (
     <BeamsBackground className="relative min-h-screen w-full overflow-hidden bg-neutral-950">
       <div className="relative z-10 flex flex-col items-center justify-center min-h-screen px-4 sm:px-6 lg:px-8">
@@ -16,7 +19,8 @@ export default function Home() {
               alt="TrueSpace Logo" 
               width={80} 
               height={80}
-              className="filter brightness-0 invert mb-4"
+              className="filter brightness-0 invert mb-4 cursor-pointer hover:scale-110 transition-transform duration-300"
+              onClick={() => router.push('/admin')}
             />
             <h1 className="text-4xl sm:text-5xl font-bold text-white tracking-tight">
               TrueSpace
@@ -35,6 +39,7 @@ export default function Home() {
             <div className="max-w-md mx-auto space-y-3">
                {/* AI Coding */}
                <Button 
+                 onClick={() => router.push('/ai-coding')}
                  variant="outline"
                  className="group w-full h-auto p-4 flex items-start justify-start space-x-4 bg-white/5 border-white/20 hover:bg-white/10 hover:border-white/30 text-white transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:shadow-white/10 active:scale-[0.98]"
                  size="lg"
@@ -48,6 +53,7 @@ export default function Home() {
                
                {/* AI Assistants */}
                <Button 
+                 onClick={() => router.push('/ai-assistants')}
                  variant="outline"
                  className="group w-full h-auto p-4 flex items-start justify-start space-x-4 bg-white/5 border-white/20 hover:bg-white/10 hover:border-white/30 text-white transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:shadow-white/10 active:scale-[0.98]"
                  size="lg"
@@ -61,6 +67,7 @@ export default function Home() {
                
                {/* Generative AI */}
                <Button 
+                 onClick={() => router.push('/generative-ai')}
                  variant="outline"
                  className="group w-full h-auto p-4 flex items-start justify-start space-x-4 bg-white/5 border-white/20 hover:bg-white/10 hover:border-white/30 text-white transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:shadow-white/10 active:scale-[0.98]"
                  size="lg"
@@ -74,6 +81,7 @@ export default function Home() {
                
                {/* Machine Learning */}
                <Button 
+                 onClick={() => router.push('/machine-learning')}
                  variant="outline"
                  className="group w-full h-auto p-4 flex items-start justify-start space-x-4 bg-white/5 border-white/20 hover:bg-white/10 hover:border-white/30 text-white transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:shadow-white/10 active:scale-[0.98]"
                  size="lg"
@@ -87,6 +95,7 @@ export default function Home() {
                
                {/* AI Ethics */}
                <Button 
+                 onClick={() => router.push('/ai-ethics')}
                  variant="outline"
                  className="group w-full h-auto p-4 flex items-start justify-start space-x-4 bg-white/5 border-white/20 hover:bg-white/10 hover:border-white/30 text-white transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:shadow-white/10 active:scale-[0.98]"
                  size="lg"
@@ -100,6 +109,7 @@ export default function Home() {
                
                {/* Future Tech */}
                <Button 
+                 onClick={() => router.push('/future-ai')}
                  variant="outline"
                  className="group w-full h-auto p-4 flex items-start justify-start space-x-4 bg-white/5 border-white/20 hover:bg-white/10 hover:border-white/30 text-white transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:shadow-white/10 active:scale-[0.98]"
                  size="lg"
