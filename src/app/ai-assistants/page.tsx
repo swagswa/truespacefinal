@@ -2,15 +2,20 @@
 
 import { BeamsBackground } from "@/components/ui/beams-background";
 import { Button } from "@/components/ui/button";
-import { Bot, ArrowLeft, Archive, Calendar } from "lucide-react";
-import Image from "next/image";
+import { ArrowLeft, Archive, Calendar, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useSubtopics } from "@/lib/hooks/useSubtopics";
 
 export default function AIAssistantsPage() {
   const router = useRouter();
+  const { subtopics, loading, error } = useSubtopics('ii-assistenty');
 
   const handleBack = () => {
     router.push('/');
+  };
+
+  const handleSubtopicClick = (slug: string) => {
+    router.push(`/ai-assistants/${slug}`);
   };
 
   return (
@@ -41,33 +46,40 @@ export default function AIAssistantsPage() {
           
           {/* Course Options */}
           <div className="max-w-md mx-auto space-y-3">
-            {/* Sprint September 2025 */}
-            <Button 
-              onClick={() => router.push('/ai-assistants/sprint-september')}
-              variant="outline"
-              className="group w-full h-auto p-4 flex items-start justify-start space-x-4 bg-white/5 border-white/20 hover:bg-white/10 hover:border-white/30 text-white transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:shadow-white/10 active:scale-[0.98] pointer-events-auto"
-              size="lg"
-            >
-              <Calendar className="h-5 w-5 text-white flex-shrink-0 group-hover:scale-110 transition-transform duration-300 mt-0.5" />
-              <div className="flex flex-col items-start group-hover:translate-x-1 transition-transform duration-300">
-                <div className="text-base font-medium">Спринт сентябрь 2025</div>
-                <div className="text-sm text-gray-400 mt-1">Актуальный курс по ИИ-ассистентам</div>
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
+                <span className="ml-2 text-gray-400">Загрузка поддтем...</span>
               </div>
-            </Button>
-            
-            {/* Archive */}
-            <Button 
-              onClick={() => router.push('/ai-assistants/archive')}
-              variant="outline"
-              className="group w-full h-auto p-4 flex items-start justify-start space-x-4 bg-white/5 border-white/20 hover:bg-white/10 hover:border-white/30 text-white transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:shadow-white/10 active:scale-[0.98] pointer-events-auto"
-              size="lg"
-            >
-              <Archive className="h-5 w-5 text-white flex-shrink-0 group-hover:rotate-12 transition-transform duration-300 mt-0.5" />
-              <div className="flex flex-col items-start group-hover:translate-x-1 transition-transform duration-300">
-                <div className="text-base font-medium">Архив</div>
-                <div className="text-sm text-gray-400 mt-1">Все предыдущие уроки и материалы</div>
+            ) : error ? (
+              <div className="rounded-xl border border-red-800 bg-red-900/20 p-6 text-center">
+                <p className="text-red-400">Ошибка загрузки: {error}</p>
               </div>
-            </Button>
+            ) : (
+              subtopics.map((subtopic) => {
+                const isArchive = subtopic.slug === 'archive';
+                
+                return (
+                  <Button 
+                    key={subtopic.id}
+                    onClick={() => handleSubtopicClick(subtopic.slug)}
+                    variant="outline"
+                    className="group w-full h-auto p-4 flex items-start justify-start space-x-4 bg-white/5 border-white/20 hover:bg-white/10 hover:border-white/30 text-white transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:shadow-white/10 active:scale-[0.98] pointer-events-auto"
+                    size="lg"
+                  >
+                    {isArchive ? (
+                      <Archive className="h-5 w-5 text-white flex-shrink-0 group-hover:rotate-12 transition-transform duration-300 mt-0.5" />
+                    ) : (
+                      <Calendar className="h-5 w-5 text-white flex-shrink-0 group-hover:scale-110 transition-transform duration-300 mt-0.5" />
+                    )}
+                    <div className="flex flex-col items-start group-hover:translate-x-1 transition-transform duration-300">
+                      <div className="text-base font-medium">{subtopic.title}</div>
+                      <div className="text-sm text-gray-400 mt-1">{subtopic.description}</div>
+                    </div>
+                  </Button>
+                );
+              })
+            )}
           </div>
         </div>
       </div>

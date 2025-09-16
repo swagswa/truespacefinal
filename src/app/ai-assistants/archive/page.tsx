@@ -2,77 +2,53 @@
 
 import { BeamsBackground } from "@/components/ui/beams-background";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Play, Clock, Calendar, Archive, ChevronDown, ChevronUp } from "lucide-react";
+import { ArrowLeft, Archive } from "lucide-react";
+import { LessonCard } from "@/components/ui/lesson-card";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+
+import { useSubtopics } from "@/lib/hooks/useSubtopics";
 
 export default function ArchivePage() {
   const router = useRouter();
-  const [expandedLessons, setExpandedLessons] = useState<Set<number>>(new Set());
-
+  const { subtopics, loading, error } = useSubtopics('ii-assistenty');
+  
   const handleBack = () => {
     router.push('/ai-assistants');
   };
 
-  const toggleExpanded = (lessonId: number) => {
-    const newExpanded = new Set(expandedLessons);
-    if (newExpanded.has(lessonId)) {
-      newExpanded.delete(lessonId);
-    } else {
-      newExpanded.add(lessonId);
-    }
-    setExpandedLessons(newExpanded);
+  const handlePlayClick = (link: string) => {
+    console.log('Playing lesson with link:', link);
   };
 
-  const archiveLessons = [
-    {
-      category: "ИИ Ассистенты",
-      lessons: [
-        {
-          id: 1,
-          title: "История развития ИИ-ассистентов",
-          duration: "40 мин",
-          date: "Август 2025",
-          description: "От первых чат-ботов до современных ИИ-помощников"
-        },
-        {
-          id: 2,
-          title: "Сравнение популярных ИИ-ассистентов",
-          duration: "55 мин",
-          date: "Июль 2025",
-          description: "ChatGPT, Claude, Bard и другие: особенности и возможности"
-        },
-        {
-          id: 3,
-          title: "Продвинутые техники промптинга",
-          duration: "45 мин",
-          date: "Июнь 2025",
-          description: "Chain-of-thought, few-shot learning и другие методы"
-        },
-        {
-          id: 4,
-          title: "ИИ-ассистенты в бизнесе",
-          duration: "50 мин",
-          date: "Май 2025",
-          description: "Внедрение ИИ-помощников в корпоративные процессы"
-        },
-        {
-          id: 5,
-          title: "Создание кастомных ИИ-ассистентов",
-          duration: "55 мин",
-          date: "Апрель 2025",
-          description: "GPTs, Claude Projects и другие инструменты персонализации"
-        },
-        {
-          id: 6,
-          title: "Безопасность и приватность с ИИ",
-          duration: "40 мин",
-          date: "Март 2025",
-          description: "Защита данных при работе с ИИ-ассистентами"
-        }
-      ]
-    }
-  ];
+  // Найти архивную подтему
+  const archiveSubtopic = subtopics?.find(subtopic => 
+    subtopic.slug === 'archive' || 
+    subtopic.title.toLowerCase().includes('архив')
+  );
+
+  const archiveLessons = archiveSubtopic?.lessons || [];
+
+  if (loading) {
+    return (
+      <BeamsBackground className="relative min-h-screen w-full overflow-hidden bg-neutral-950">
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-white text-xl">Загрузка...</div>
+        </div>
+      </BeamsBackground>
+    );
+  }
+
+  if (error) {
+    return (
+      <BeamsBackground className="relative min-h-screen w-full overflow-hidden bg-neutral-950">
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-red-400 text-xl">Ошибка загрузки: {error}</div>
+        </div>
+      </BeamsBackground>
+    );
+  }
+
+
 
   return (
     <BeamsBackground className="relative min-h-screen w-full overflow-hidden bg-neutral-950">
@@ -102,66 +78,44 @@ export default function ArchivePage() {
           </p>
         </div>
         
-        {/* Archive Categories */}
+        {/* Archive Lessons */}
         <div className="max-w-6xl mx-auto w-full space-y-6 px-2">
-          {archiveLessons.map((category, categoryIndex) => (
-            <div key={categoryIndex} className="space-y-3">
+          {archiveSubtopic && (
+            <div className="space-y-3">
               <h2 className="text-xl sm:text-2xl font-semibold text-white mb-3 flex items-center">
                 <div className="w-1 h-5 sm:h-6 bg-blue-500 mr-2 sm:mr-3 rounded"></div>
-                {category.category}
+                {archiveSubtopic.title}
               </h2>
               <div className="space-y-3">
-                {category.lessons.map((lesson) => {
-                  const isExpanded = expandedLessons.has(lesson.id);
-                  return (
-                    <div key={lesson.id} className="w-full">
-                      <Button 
-                        variant="outline"
-                        className="w-full h-auto p-4 sm:p-6 flex items-start justify-between bg-white/5 border-white/20 hover:bg-white/10 hover:border-white/30 text-white transition-colors duration-200 pointer-events-auto"
-                        onClick={() => toggleExpanded(lesson.id)}
-                      >
-                        <div className="flex items-start space-x-3 sm:space-x-4 flex-1 min-w-0 pr-2">
-                          <div className="flex-shrink-0 w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-gray-500/20 flex items-center justify-center">
-                            <span className="text-xs sm:text-sm font-medium text-gray-400">{lesson.id}</span>
-                          </div>
-                          <div className="flex flex-col items-start flex-1 min-w-0 max-w-[calc(100%-3rem)]">
-                            <h3 className="text-sm sm:text-lg font-medium text-left leading-tight max-w-full">
-                              {lesson.title}
-                            </h3>
-                            <p className={`text-xs sm:text-sm text-gray-400 mt-1 text-left leading-tight max-w-full ${
-                              isExpanded 
-                                ? 'whitespace-normal break-words' 
-                                : 'overflow-hidden text-ellipsis whitespace-nowrap'
-                            }`}>
-                              {lesson.description}
-                            </p>
-                            <div className="flex items-center space-x-3 sm:space-x-4 mt-2">
-                              <div className="flex items-center space-x-1 text-xs text-gray-500">
-                                <Clock className="h-3 w-3 flex-shrink-0" />
-                                <span className="whitespace-nowrap">{lesson.duration}</span>
-                              </div>
-                              <div className="flex items-center space-x-1 text-xs text-gray-500">
-                                <Calendar className="h-3 w-3 flex-shrink-0" />
-                                <span className="whitespace-nowrap">{lesson.date}</span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex items-center space-x-2 flex-shrink-0 ml-2 self-center">
-                          {isExpanded ? (
-                            <ChevronUp className="h-4 w-4 text-gray-400" />
-                          ) : (
-                            <ChevronDown className="h-4 w-4 text-gray-400" />
-                          )}
-                          <Play className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400" />
-                        </div>
-                      </Button>
-                    </div>
-                  );
-                })}
+                {archiveLessons.length > 0 ? (
+                  archiveLessons.map((lesson) => (
+                    <LessonCard
+                      key={lesson.id}
+                      lesson={{
+                        id: lesson.id,
+                        title: lesson.title,
+                        duration: lesson.duration || 0,
+                        description: lesson.description,
+                        completed: false,
+                        link: lesson.link
+                      }}
+                      onPlayClick={handlePlayClick}
+                    />
+                  ))
+                ) : (
+                  <div className="text-center py-8">
+                    <p className="text-gray-400 text-lg">Архивные уроки пока не добавлены</p>
+                  </div>
+                )}
               </div>
             </div>
-          ))}
+          )}
+          
+          {!archiveSubtopic && (
+            <div className="text-center py-8">
+              <p className="text-gray-400 text-lg">Архивная секция не найдена</p>
+            </div>
+          )}
         </div>
       </div>
     </BeamsBackground>

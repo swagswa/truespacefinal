@@ -2,7 +2,8 @@
 
 import { BeamsBackground } from "@/components/ui/beams-background";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Play, Clock, Users, ChevronDown, ChevronUp } from "lucide-react";
+import { LessonCard } from "@/components/ui/lesson-card";
+import { ArrowLeft } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -24,41 +25,50 @@ export default function SprintSeptemberPage() {
     setExpandedLessons(newExpanded);
   };
 
+  const handlePlayClick = (link: string) => {
+    window.open(link, '_blank');
+  };
+
   const lessons = [
     {
       id: 1,
       title: "Искусственный общий интеллект (AGI)",
       duration: "50 мин",
       description: "Путь к созданию AGI и его потенциальные возможности",
-      completed: false
+      completed: false,
+      link: "https://www.figma.com"
     },
     {
       id: 2,
       title: "Квантовые вычисления и ИИ",
       duration: "45 мин",
       description: "Революция в машинном обучении через квантовые технологии",
-      completed: false
+      completed: false,
+      link: "https://www.figma.com"
     },
     {
       id: 3,
       title: "Нейроморфные вычисления",
       duration: "40 мин",
       description: "Чипы, имитирующие работу человеческого мозга",
-      completed: false
+      completed: false,
+      link: "https://www.figma.com"
     },
     {
       id: 4,
       title: "ИИ в космических исследованиях",
       duration: "35 мин",
       description: "Роль искусственного интеллекта в освоении космоса",
-      completed: false
+      completed: false,
+      link: "https://www.figma.com"
     },
     {
       id: 5,
       title: "Сингулярность и постчеловеческое будущее",
       duration: "55 мин",
       description: "Теории технологической сингулярности и их последствия",
-      completed: false
+      completed: false,
+      link: "https://www.figma.com"
     }
   ];
 
@@ -92,45 +102,13 @@ export default function SprintSeptemberPage() {
           {lessons.map((lesson) => {
             const isExpanded = expandedLessons.has(lesson.id);
             return (
-              <div key={lesson.id} className="w-full">
-                <Button 
-                  variant="outline"
-                  className="w-full h-auto p-4 sm:p-6 flex items-start justify-between bg-white/5 border-white/20 hover:bg-white/10 hover:border-white/30 text-white transition-colors duration-200 pointer-events-auto overflow-hidden"
-                  onClick={() => toggleExpanded(lesson.id)}
-                >
-                  <div className="flex items-start space-x-3 sm:space-x-4 flex-1 min-w-0 pr-2">
-                    <div className="flex-shrink-0 w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-blue-500/20 flex items-center justify-center">
-                      <span className="text-xs sm:text-sm font-medium text-blue-400">{lesson.id}</span>
-                    </div>
-                    <div className="flex flex-col items-start flex-1 min-w-0 max-w-[calc(100%-3rem)]">
-                      <h3 className="text-sm sm:text-lg font-medium text-left leading-tight max-w-full">
-                        {lesson.title}
-                      </h3>
-                      <p className={`text-xs sm:text-sm text-gray-400 mt-1 text-left leading-tight max-w-full ${
-                        isExpanded 
-                          ? 'whitespace-normal break-words' 
-                          : 'overflow-hidden text-ellipsis whitespace-nowrap'
-                      }`}>
-                        {lesson.description}
-                      </p>
-                      <div className="flex items-center mt-2">
-                        <div className="flex items-center space-x-1 text-xs text-gray-500">
-                          <Clock className="h-3 w-3 flex-shrink-0" />
-                          <span className="whitespace-nowrap">{lesson.duration}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-2 flex-shrink-0 ml-2 self-center">
-                    {isExpanded ? (
-                      <ChevronUp className="h-4 w-4 text-gray-400" />
-                    ) : (
-                      <ChevronDown className="h-4 w-4 text-gray-400" />
-                    )}
-                    <Play className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400" />
-                  </div>
-                </Button>
-              </div>
+              <LessonCard
+                key={lesson.id}
+                lesson={lesson}
+                isExpanded={isExpanded}
+                onToggleExpanded={() => toggleExpanded(lesson.id)}
+                onPlayClick={handlePlayClick}
+              />
             );
           })}
         </div>
