@@ -80,7 +80,7 @@ export default function ThemesList() {
               <div className="flex items-center justify-between text-sm text-gray-400">
                 <div className="flex items-center space-x-1">
                   <BookOpen className="h-4 w-4" />
-                  <span>{theme.lessons?.length || 0} уроков</span>
+                  <span>Тема</span>
                 </div>
                 
                 <div className="flex items-center space-x-1">

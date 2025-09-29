@@ -1,79 +1,67 @@
+'use client';
+
 import { useState, useEffect, useCallback } from 'react';
-
-interface Lesson {
-  id: number;
-  title: string;
-  name: string;
-  description: string;
-  content: string;
-  slug: string;
-  duration: number;
-  date: string;
-  link?: string;
-}
-
-interface Subtopic {
-  id: number;
-  title: string;
-  name: string;
-  description: string;
-  slug: string;
-  lessonsCount: number;
-  lessons: Lesson[];
-}
+import { ApiClient } from '@/lib/api';
+import { Subtopic, SubtopicsResponse } from '@/types/api';
 
 interface UseSubtopicsReturn {
   subtopics: Subtopic[];
   loading: boolean;
   error: string | null;
-  refetch: () => void;
+  refetch: () => Promise<void>;
+  pagination?: SubtopicsResponse['pagination'];
+  theme?: SubtopicsResponse['theme'];
 }
 
-export function useSubtopics(themeSlug: string): UseSubtopicsReturn {
+const apiClient = new ApiClient();
+
+export function useSubtopics(
+  themeSlug: string,
+  params?: {
+    page?: number;
+    limit?: number;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+  }
+): UseSubtopicsReturn {
   const [subtopics, setSubtopics] = useState<Subtopic[]>([]);
+  const [pagination, setPagination] = useState<SubtopicsResponse['pagination']>();
+  const [theme, setTheme] = useState<SubtopicsResponse['theme']>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchSubtopics = useCallback(async () => {
+    if (!themeSlug) {
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
       
-      const response = await fetch(`http://localhost:1337/api/themes/${themeSlug}/subtopics`);
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      
-      if (data.success) {
-        setSubtopics(data.data);
-      } else {
-        throw new Error('Failed to fetch subtopics');
-      }
+      const response = await apiClient.getSubtopics(themeSlug, params);
+      setSubtopics(response.subtopics);
+      setPagination(response.pagination);
+      setTheme(response.theme);
     } catch (err) {
-      console.error('Error fetching subtopics:', err);
-      setError(err instanceof Error ? err.message : 'Unknown error occurred');
+      setError(err instanceof Error ? err.message : 'Failed to fetch subtopics');
+      console.error('Failed to fetch subtopics:', err);
     } finally {
       setLoading(false);
     }
-  }, [themeSlug]);
+  }, [themeSlug, params]);
 
   useEffect(() => {
-    if (themeSlug) {
-      fetchSubtopics();
-    }
-  }, [themeSlug, fetchSubtopics]);
-
-  const refetch = () => {
     fetchSubtopics();
-  };
+  }, [fetchSubtopics]);
 
   return {
     subtopics,
     loading,
     error,
-    refetch
+    refetch: fetchSubtopics,
+    pagination,
+    theme,
   };
 }

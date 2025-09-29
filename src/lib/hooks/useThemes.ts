@@ -1,67 +1,61 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { apiClient } from '../api';
+import { ApiClient } from '@/lib/api';
+import { Theme, ThemesResponse } from '@/types/api';
+import { Lesson } from '@/types/lesson';
 
-export interface Theme {
-  id: string;
-  title: string;
-  description: string;
-  slug: string;
-  lessons: Lesson[];
-  createdAt: string;
-  updatedAt: string;
+interface UseThemesReturn {
+  themes: Theme[];
+  loading: boolean;
+  error: string | null;
+  refetch: () => Promise<void>;
+  pagination?: ThemesResponse['pagination'];
 }
 
-export interface Lesson {
-  id: string;
-  title: string;
-  description: string;
-  content: string;
-  slug: string;
-  themeId: string;
-  order: number;
-  duration?: string | number;
-  link?: string;
-  createdAt: string;
-  updatedAt: string;
-}
+const apiClient = new ApiClient();
 
-export const useThemes = () => {
+export function useThemes(params?: {
+  page?: number;
+  limit?: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+}): UseThemesReturn {
   const [themes, setThemes] = useState<Theme[]>([]);
+  const [pagination, setPagination] = useState<ThemesResponse['pagination']>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchThemes = async () => {
+  const fetchThemes = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await apiClient.get<{ success: boolean; data: Theme[] }>('/api/themes');
       
-      if (response.success) {
-        setThemes(response.data);
-      } else {
-        setError('Не удалось загрузить темы');
-      }
+      console.log('🔄 Fetching themes with params:', params);
+      const response = await apiClient.getThemes(params);
+      console.log('✅ Themes response:', response);
+      setThemes(response.themes);
+      setPagination(response.pagination);
     } catch (err) {
-      console.error('Error fetching themes:', err);
-      setError('Ошибка при загрузке тем');
+      setError(err instanceof Error ? err.message : 'Failed to fetch themes');
+      console.error('❌ Failed to fetch themes:', err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [params]);
 
   useEffect(() => {
     fetchThemes();
-  }, []);
+  }, [fetchThemes]);
 
   return {
     themes,
     loading,
     error,
-    refetch: fetchThemes
+    refetch: fetchThemes,
+    pagination,
   };
-};
+}
 
 export const useTheme = (themeId: string) => {
   const [theme, setTheme] = useState<Theme | null>(null);
