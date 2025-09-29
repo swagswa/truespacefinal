@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, createContext, useContext } from 'react';
+import { useState, useEffect, useCallback, createContext, useContext, useRef } from 'react';
 
 export interface User {
   id: number;
@@ -12,7 +12,7 @@ export interface User {
   isPremium: boolean | null;
 }
 
-interface AuthState {
+export interface AuthState {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
@@ -46,32 +46,57 @@ export const useAuthState = (): AuthContextType => {
     sessionId: null
   });
 
-  // Функция для сохранения токена в localStorage
-  const saveSessionId = useCallback((sessionId: string) => {
+  const checkAuthCalled = useRef(false);
+  const loginInProgress = useRef(false);
+
+  // Функция для сохранения telegramId в localStorage
+  const saveTelegramId = useCallback((telegramId: string) => {
     if (typeof window !== 'undefined') {
-      localStorage.setItem('sessionId', sessionId);
+      localStorage.setItem('telegramId', telegramId);
     }
   }, []);
 
-  // Функция для получения токена из localStorage
-  const getSessionId = useCallback((): string | null => {
+  // Функция для получения telegramId из localStorage
+  const getTelegramId = useCallback((): string | null => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem('sessionId');
+      return localStorage.getItem('telegramId');
     }
     return null;
   }, []);
 
-  // Функция для удаления токена из localStorage
-  const removeSessionId = useCallback(() => {
+  // Функция для удаления telegramId из localStorage
+  const removeTelegramId = useCallback(() => {
     if (typeof window !== 'undefined') {
-      localStorage.removeItem('sessionId');
+      localStorage.removeItem('telegramId');
     }
   }, []);
 
   // Функция для входа через Telegram
   const login = useCallback(async (initData: string): Promise<boolean> => {
+    // Предотвращаем множественные одновременные попытки входа
+    if (loginInProgress.current) {
+      console.log('Login already in progress, skipping...');
+      return false;
+    }
+
     try {
+      loginInProgress.current = true;
       setState(prev => ({ ...prev, isLoading: true }));
+
+      // Проверяем, что initData не пустая
+      if (!initData || initData.trim() === '') {
+        console.error('Login failed: initData is empty');
+        setState(prev => ({ 
+          ...prev, 
+          isLoading: false,
+          user: null,
+          isAuthenticated: false,
+          sessionId: null
+        }));
+        return false;
+      }
+
+      console.log('Sending login request with initData length:', initData.length);
 
       const response = await fetch('/api/auth/telegram', {
         method: 'POST',
@@ -81,28 +106,44 @@ export const useAuthState = (): AuthContextType => {
         body: JSON.stringify({ initData }),
       });
 
-      const data = await response.json();
-
-      if (data.success && data.data) {
-        const { user, sessionId } = data.data;
-        
-        saveSessionId(sessionId);
-        
-        setState({
-          user,
-          isLoading: false,
-          isAuthenticated: true,
-          sessionId
-        });
-
-        return true;
-      } else {
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Login failed with status:', response.status, 'Error:', errorText);
         setState(prev => ({ 
           ...prev, 
           isLoading: false,
           user: null,
           isAuthenticated: false,
           sessionId: null
+        }));
+        return false;
+      }
+
+      const data = await response.json();
+      console.log('Login response:', data);
+
+      if (data.success && data.data && data.data.user) {
+        // Сохраняем telegramId в localStorage
+        if (data.data.user.telegramId) {
+          saveTelegramId(data.data.user.telegramId);
+        }
+
+        setState({
+          user: data.data.user,
+          isLoading: false,
+          isAuthenticated: true,
+          sessionId: data.data.user.id.toString()
+        });
+
+        console.log('Login successful for user:', data.data.user.username || data.data.user.firstName);
+        return true;
+      } else {
+        console.error('Login failed: No user data in response', data);
+        setState(prev => ({ 
+          ...prev, 
+          isLoading: false,
+          user: null,
+          isAuthenticated: false
         }));
         return false;
       }
@@ -116,26 +157,34 @@ export const useAuthState = (): AuthContextType => {
         sessionId: null
       }));
       return false;
+    } finally {
+      loginInProgress.current = false;
     }
-  }, [saveSessionId]);
+  }, [saveTelegramId]);
 
   // Функция для выхода
   const logout = useCallback(() => {
-    removeSessionId();
+    removeTelegramId();
     setState({
       user: null,
       isLoading: false,
       isAuthenticated: false,
       sessionId: null
     });
-  }, [removeSessionId]);
+  }, [removeTelegramId]);
 
   // Функция для проверки текущей аутентификации
   const checkAuth = useCallback(async () => {
+    // Предотвращаем множественные вызовы checkAuth
+    if (checkAuthCalled.current) {
+      return;
+    }
+
     try {
-      const sessionId = getSessionId();
+      checkAuthCalled.current = true;
+      const telegramId = getTelegramId();
       
-      if (!sessionId) {
+      if (!telegramId) {
         setState(prev => ({ ...prev, isLoading: false }));
         return;
       }
@@ -143,7 +192,7 @@ export const useAuthState = (): AuthContextType => {
       const response = await fetch('/api/auth/telegram', {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${sessionId}`,
+          'Authorization': `Bearer ${telegramId}`,
         },
       });
 
@@ -154,11 +203,11 @@ export const useAuthState = (): AuthContextType => {
           user: data.data.user,
           isLoading: false,
           isAuthenticated: true,
-          sessionId
+          sessionId: data.data.user.id.toString()
         });
       } else {
         // Токен недействителен, удаляем его
-        removeSessionId();
+        removeTelegramId();
         setState({
           user: null,
           isLoading: false,
@@ -168,7 +217,7 @@ export const useAuthState = (): AuthContextType => {
       }
     } catch (error) {
       console.error('Auth check error:', error);
-      removeSessionId();
+      removeTelegramId();
       setState({
         user: null,
         isLoading: false,
@@ -176,12 +225,12 @@ export const useAuthState = (): AuthContextType => {
         sessionId: null
       });
     }
-  }, [getSessionId, removeSessionId]);
+  }, [getTelegramId, removeTelegramId]);
 
-  // Проверяем аутентификацию при загрузке
+  // Проверяем аутентификацию при загрузке только один раз
   useEffect(() => {
     checkAuth();
-  }, [checkAuth]);
+  }, []); // Убираем checkAuth из зависимостей
 
   return {
     ...state,
@@ -194,56 +243,56 @@ export const useAuthState = (): AuthContextType => {
 // Утилитарные функции для работы с API
 export const apiWithAuth = {
   get: async (url: string) => {
-    const sessionId = typeof window !== 'undefined' 
-      ? localStorage.getItem('sessionId') 
+    const telegramId = typeof window !== 'undefined' 
+      ? localStorage.getItem('telegramId') 
       : null;
     
     return fetch(url, {
       headers: {
-        'Authorization': sessionId ? `Bearer ${sessionId}` : '',
+        'Authorization': telegramId ? `Bearer ${telegramId}` : '',
       },
     });
   },
 
   post: async (url: string, data: Record<string, unknown>) => {
-    const sessionId = typeof window !== 'undefined' 
-      ? localStorage.getItem('sessionId') 
+    const telegramId = typeof window !== 'undefined' 
+      ? localStorage.getItem('telegramId') 
       : null;
     
     return fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': sessionId ? `Bearer ${sessionId}` : '',
+        'Authorization': telegramId ? `Bearer ${telegramId}` : '',
       },
       body: JSON.stringify(data),
     });
   },
 
   put: async (url: string, data: Record<string, unknown>) => {
-    const sessionId = typeof window !== 'undefined' 
-      ? localStorage.getItem('sessionId') 
+    const telegramId = typeof window !== 'undefined' 
+      ? localStorage.getItem('telegramId') 
       : null;
     
     return fetch(url, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': sessionId ? `Bearer ${sessionId}` : '',
+        'Authorization': telegramId ? `Bearer ${telegramId}` : '',
       },
       body: JSON.stringify(data),
     });
   },
 
   delete: async (url: string) => {
-    const sessionId = typeof window !== 'undefined' 
-      ? localStorage.getItem('sessionId') 
+    const telegramId = typeof window !== 'undefined' 
+      ? localStorage.getItem('telegramId') 
       : null;
     
     return fetch(url, {
       method: 'DELETE',
       headers: {
-        'Authorization': sessionId ? `Bearer ${sessionId}` : '',
+        'Authorization': telegramId ? `Bearer ${telegramId}` : '',
       },
     });
   }

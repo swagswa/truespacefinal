@@ -21,7 +21,7 @@ export interface AuthenticatedRequest extends NextRequest {
 
 /**
  * Middleware для проверки аутентификации пользователя
- * Проверяет sessionId в заголовке Authorization
+ * Проверяет telegramId в заголовке Authorization
  */
 export async function withAuth(
   handler: (req: AuthenticatedRequest) => Promise<NextResponse>
@@ -30,20 +30,20 @@ export async function withAuth(
     try {
       // Получаем токен из заголовка Authorization
       const authHeader = req.headers.get('authorization');
-      const sessionId = authHeader?.startsWith('Bearer ') 
+      const telegramId = authHeader?.startsWith('Bearer ') 
         ? authHeader.substring(7) 
         : null;
 
-      if (!sessionId) {
+      if (!telegramId) {
         return NextResponse.json(
           { success: false, error: 'Authentication required' },
           { status: 401 }
         );
       }
 
-      // Ищем пользователя по sessionId
+      // Ищем пользователя по telegramId
       const user = await prisma.user.findUnique({
-        where: { sessionId },
+        where: { telegramId },
         select: {
           id: true,
           telegramId: true,
@@ -93,14 +93,14 @@ export async function withOptionalAuth(
     try {
       // Получаем токен из заголовка Authorization
       const authHeader = req.headers.get('authorization');
-      const sessionId = authHeader?.startsWith('Bearer ') 
+      const telegramId = authHeader?.startsWith('Bearer ') 
         ? authHeader.substring(7) 
         : null;
 
-      if (sessionId) {
-        // Ищем пользователя по sessionId
+      if (telegramId) {
+        // Ищем пользователя по telegramId
         const user = await prisma.user.findUnique({
-          where: { sessionId },
+          where: { telegramId },
           select: {
             id: true,
             telegramId: true,
@@ -133,12 +133,12 @@ export async function withOptionalAuth(
 }
 
 /**
- * Утилита для получения пользователя из sessionId
+ * Утилита для получения пользователя из telegramId
  */
-export async function getUserFromSession(sessionId: string): Promise<AuthenticatedUser | null> {
+export async function getUserFromTelegramId(telegramId: string): Promise<AuthenticatedUser | null> {
   try {
     const user = await prisma.user.findUnique({
-      where: { sessionId },
+      where: { telegramId },
       select: {
         id: true,
         telegramId: true,

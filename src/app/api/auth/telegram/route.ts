@@ -65,9 +65,65 @@ function validateTelegramInitData(initData: string, botToken: string): TelegramU
 
 export async function POST(request: NextRequest) {
   try {
-    const { initData } = await request.json();
+    console.log('Telegram auth POST request received');
+    
+    // Проверяем Content-Type заголовок
+    const contentType = request.headers.get('content-type');
+    console.log('Content-Type:', contentType);
+    
+    if (!contentType || !contentType.includes('application/json')) {
+      console.error('Invalid Content-Type. Expected application/json, got:', contentType);
+      return NextResponse.json(
+        { success: false, error: 'Content-Type must be application/json' },
+        { status: 400 }
+      );
+    }
+
+    // Проверяем размер тела запроса
+    const contentLength = request.headers.get('content-length');
+    console.log('Content-Length:', contentLength);
+    
+    if (!contentLength || parseInt(contentLength) === 0) {
+      console.error('Empty request body detected');
+      return NextResponse.json(
+        { success: false, error: 'Request body cannot be empty' },
+        { status: 400 }
+      );
+    }
+    
+    // Безопасно парсим JSON с обработкой ошибок
+    let requestBody;
+    try {
+      const text = await request.text();
+      console.log('Request text length:', text.length);
+      
+      if (!text.trim()) {
+        console.error('Request body is empty or contains only whitespace');
+        return NextResponse.json(
+          { success: false, error: 'Request body cannot be empty' },
+          { status: 400 }
+        );
+      }
+      
+      requestBody = JSON.parse(text);
+      console.log('Request body parsed successfully');
+    } catch (jsonError) {
+      console.error('JSON parsing error:', jsonError);
+      console.error('Error details:', {
+        name: jsonError instanceof Error ? jsonError.name : 'Unknown',
+        message: jsonError instanceof Error ? jsonError.message : 'Unknown error'
+      });
+      return NextResponse.json(
+        { success: false, error: 'Invalid JSON in request body' },
+        { status: 400 }
+      );
+    }
+
+    const { initData } = requestBody || {};
+    console.log('InitData received:', initData ? 'Yes (length: ' + initData.length + ')' : 'No');
 
     if (!initData) {
+      console.log('InitData is missing or empty');
       return NextResponse.json(
         { success: false, error: 'initData is required' },
         { status: 400 }
@@ -94,51 +150,33 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Ищем или создаем пользователя
-    let user = await prisma.user.findUnique({
-      where: { telegramId: userData.id.toString() }
+    // Используем upsert для создания или обновления пользователя
+    const user = await prisma.user.upsert({
+      where: { telegramId: userData.id.toString() },
+      update: {
+        username: userData.username || null,
+        firstName: userData.first_name || null,
+        lastName: userData.last_name || null,
+        photoUrl: userData.photo_url || null,
+        languageCode: userData.language_code || null,
+        isPremium: userData.is_premium || false,
+        name: userData.first_name || userData.username || 'Telegram User'
+      },
+      create: {
+        telegramId: userData.id.toString(),
+        username: userData.username || null,
+        firstName: userData.first_name || null,
+        lastName: userData.last_name || null,
+        photoUrl: userData.photo_url || null,
+        languageCode: userData.language_code || null,
+        isPremium: userData.is_premium || false,
+        name: userData.first_name || userData.username || 'Telegram User'
+      }
     });
 
-    if (!user) {
-      // Создаем нового пользователя
-      user = await prisma.user.create({
-        data: {
-          telegramId: userData.id.toString(),
-          username: userData.username || null,
-          firstName: userData.first_name || null,
-          lastName: userData.last_name || null,
-          photoUrl: userData.photo_url || null,
-          languageCode: userData.language_code || null,
-          isPremium: userData.is_premium || false,
-          name: userData.first_name || userData.username || 'Telegram User'
-        }
-      });
-    } else {
-      // Обновляем существующего пользователя
-      user = await prisma.user.update({
-        where: { telegramId: userData.id.toString() },
-        data: {
-          username: userData.username || user.username,
-          firstName: userData.first_name || user.firstName,
-          lastName: userData.last_name || user.lastName,
-          photoUrl: userData.photo_url || user.photoUrl,
-          languageCode: userData.language_code || user.languageCode,
-          isPremium: userData.is_premium || user.isPremium,
-          name: userData.first_name || userData.username || user.name
-        }
-      });
-    }
 
-    // Создаем JWT токен или сессию
-    const sessionId = crypto.randomUUID();
-    
-    // Обновляем пользователя с новой сессией
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { sessionId }
-    });
 
-    // Возвращаем данные пользователя и токен
+    // Возвращаем данные пользователя
     return NextResponse.json({
       success: true,
       data: {
@@ -152,19 +190,43 @@ export async function POST(request: NextRequest) {
           photoUrl: user.photoUrl,
           languageCode: user.languageCode,
           isPremium: user.isPremium
-        },
-        sessionId
+        }
       }
     });
 
   } catch (error) {
     console.error('Telegram auth error:', error);
+    console.error('Error details:', {
+      name: error instanceof Error ? error.name : 'Unknown',
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : 'No stack trace',
+      timestamp: new Date().toISOString()
+    });
+    
+    // Определяем тип ошибки для более точного ответа
+    let statusCode = 500;
+    let errorMessage = 'Internal server error';
+    
+    if (error instanceof Error) {
+      if (error.message.includes('Prisma') || error.message.includes('database')) {
+        errorMessage = 'Database error';
+        console.error('Database operation failed');
+      } else if (error.message.includes('validation') || error.message.includes('invalid')) {
+        statusCode = 400;
+        errorMessage = 'Validation error';
+      }
+    }
+    
     return NextResponse.json(
-      { success: false, error: 'Internal server error' },
-      { status: 500 }
+      { success: false, error: errorMessage },
+      { status: statusCode }
     );
   } finally {
-    await prisma.$disconnect();
+    try {
+      await prisma.$disconnect();
+    } catch (disconnectError) {
+      console.error('Error disconnecting from Prisma:', disconnectError);
+    }
   }
 }
 

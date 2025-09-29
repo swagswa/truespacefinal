@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Heart, Loader2 } from 'lucide-react';
 import { BeamsBackground } from '@/components/ui/beams-background';
@@ -31,15 +31,15 @@ export default function FavoritesPage() {
 
   const handleToggleLike = (lessonId: string) => {
     toggleFavorite(lessonId);
-    // Reload favorite lessons after toggling
-    loadFavoriteLessons();
+    // Remove lesson from local state if it was unfavorited
+    setFavoriteLessons(prev => prev.filter(lesson => lesson.id.toString() !== lessonId));
   };
 
   const handleStartLesson = (lessonId: string) => {
     console.log(`Starting lesson: ${lessonId}`);
   };
 
-  const loadFavoriteLessons = async () => {
+  const loadFavoriteLessons = useCallback(async () => {
     if (!sessionId) return;
     
     setLoading(true);
@@ -62,11 +62,14 @@ export default function FavoritesPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [sessionId]);
 
   useEffect(() => {
     if (sessionId) {
       loadFavoriteLessons();
+    } else {
+      setLoading(false);
+      setFavoriteLessons([]);
     }
   }, [sessionId, loadFavoriteLessons]);
 

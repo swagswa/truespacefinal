@@ -1,6 +1,6 @@
 'use client';
 
-import { ReactNode, useEffect } from 'react';
+import { ReactNode, useEffect, useRef } from 'react';
 import { AuthContext, useAuthState } from '@/hooks/useAuth';
 
 interface AuthProviderProps {
@@ -50,14 +50,23 @@ declare global {
 
 export default function AuthProvider({ children }: AuthProviderProps) {
   const authState = useAuthState();
+  const authAttempted = useRef(false);
 
   useEffect(() => {
+    // Предотвращаем множественные попытки аутентификации
+    if (authAttempted.current) {
+      return;
+    }
+
     // Автоматическая аутентификация при загрузке приложения
     const autoAuthenticate = async () => {
       // Проверяем, есть ли уже сохраненная сессия
       if (authState.user) {
         return;
       }
+
+      // Отмечаем, что попытка аутентификации началась
+      authAttempted.current = true;
 
       // Ждем загрузки Telegram WebApp
       const waitForTelegram = () => {
@@ -81,19 +90,21 @@ export default function AuthProvider({ children }: AuthProviderProps) {
       await waitForTelegram();
 
       // Пытаемся войти через Telegram WebApp
-      if (window.Telegram?.WebApp?.initData) {
+      const initData = window.Telegram?.WebApp?.initData;
+      if (initData && initData.trim() !== '') {
         try {
-          await authState.login(window.Telegram.WebApp.initData);
+          console.log('Attempting Telegram authentication with initData:', initData.substring(0, 50) + '...');
+          await authState.login(initData);
         } catch (error) {
           console.error('Auto-authentication failed:', error);
         }
       } else {
-        console.log('Telegram WebApp data not available, running in browser mode');
+        console.log('Telegram WebApp data not available or empty, running in browser mode');
       }
     };
 
     autoAuthenticate();
-  }, [authState]);
+  }, []); // Убираем authState из зависимостей
 
   return (
     <AuthContext.Provider value={authState}>
