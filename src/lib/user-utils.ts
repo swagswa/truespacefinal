@@ -1,4 +1,4 @@
-import { pool } from '@/lib/db';
+import { getPool } from '@/lib/db';
 import { NextRequest } from 'next/server';
 
 /**
@@ -16,6 +16,7 @@ export function getSessionId(request: NextRequest): string {
  * @returns объект пользователя
  */
 export async function getOrCreateUser(sessionId: string) {
+  const pool = getPool();
   const client = await pool.connect();
   
   try {

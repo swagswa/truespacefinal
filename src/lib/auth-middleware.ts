@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { pool } from './db';
+import { getPool } from './db';
 
 export interface AuthenticatedUser {
   id: number;
@@ -25,6 +25,7 @@ export async function withAuth(
   handler: (req: AuthenticatedRequest) => Promise<NextResponse>
 ) {
   return async (req: AuthenticatedRequest) => {
+    const pool = getPool();
     const client = await pool.connect();
     
     try {
@@ -102,6 +103,7 @@ export async function withOptionalAuth(
   handler: (req: AuthenticatedRequest) => Promise<NextResponse>
 ) {
   return async (req: AuthenticatedRequest) => {
+    const pool = getPool();
     const client = await pool.connect();
     
     try {
@@ -161,6 +163,7 @@ export async function withOptionalAuth(
  * Утилита для получения пользователя из telegramId
  */
 export async function getUserFromTelegramId(telegramId: string): Promise<AuthenticatedUser | null> {
+  const pool = getPool();
   const client = await pool.connect();
   
   try {

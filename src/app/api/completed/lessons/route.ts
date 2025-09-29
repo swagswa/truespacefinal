@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { pool } from '@/lib/db';
+import { getPool } from '@/lib/db';
 import { getUserFromRequest } from '@/lib/user-utils';
 
 export async function GET(request: NextRequest) {
+  const pool = getPool();
   const client = await pool.connect();
   
   try {

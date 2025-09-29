@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { pool } from '@/lib/db';
+import { getPool } from '@/lib/db';
 import { validateLessonId, getUserFromRequest } from '@/lib/user-utils';
 
 export async function GET(request: NextRequest) {
+  const pool = getPool();
   const client = await pool.connect();
   
   try {
@@ -39,6 +40,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const pool = getPool();
   const client = await pool.connect();
   
   try {
@@ -99,6 +101,7 @@ export async function POST(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
+  const pool = getPool();
   const client = await pool.connect();
   
   try {

@@ -45,25 +45,37 @@ function getDatabaseUrl(): string {
   return databaseUrl;
 }
 
-// Create PostgreSQL pool instance
-export const pool =
-  globalForPg.pool ??
-  new Pool({
+// Lazy initialization of PostgreSQL pool
+function createPool(): Pool {
+  if (globalForPg.pool) {
+    return globalForPg.pool;
+  }
+  
+  const newPool = new Pool({
     connectionString: getDatabaseUrl(),
     ssl: { rejectUnauthorized: false }, // Always use SSL for Supabase
     max: 20,
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 2000,
   });
-
-// In development, store the pool on the global object to prevent multiple instances
-if (process.env.NODE_ENV !== 'production') {
-  globalForPg.pool = pool;
+  
+  // In development, store the pool on the global object to prevent multiple instances
+  if (process.env.NODE_ENV !== 'production') {
+    globalForPg.pool = newPool;
+  }
+  
+  return newPool;
 }
+
+// Export a getter function instead of direct pool instance
+export const getPool = (): Pool => {
+  return createPool();
+};
 
 // Database connection helper
 export async function connectToDatabase() {
   try {
+    const pool = getPool();
     const client = await pool.connect();
     await client.query('SELECT 1');
     client.release();
@@ -78,6 +90,7 @@ export async function connectToDatabase() {
 // Database disconnection helper
 export async function disconnectFromDatabase() {
   try {
+    const pool = getPool();
     await pool.end();
     console.log('✅ Disconnected from database');
     return true;
@@ -90,6 +103,7 @@ export async function disconnectFromDatabase() {
 // Health check helper
 export async function checkDatabaseHealth() {
   try {
+    const pool = getPool();
     const client = await pool.connect();
     await client.query('SELECT 1');
     client.release();
@@ -102,11 +116,13 @@ export async function checkDatabaseHealth() {
 
 // Get a database client for transactions
 export async function getClient() {
+  const pool = getPool();
   return await pool.connect();
 }
 
 // Seed data helper
 export async function seedDatabase() {
+  const pool = getPool();
   const client = await pool.connect();
   
   try {
