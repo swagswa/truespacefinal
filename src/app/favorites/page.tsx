@@ -17,7 +17,7 @@ export default function FavoritesPage() {
   const [loading, setLoading] = useState(true);
 
   
-  const { user, sessionId } = useAuth();
+  const { user: _user, sessionId } = useAuth();
   const { isFavorite, toggleFavorite } = useFavorites();
   const { isCompleted, toggleCompleted } = useCompleted();
 
@@ -57,7 +57,7 @@ export default function FavoritesPage() {
       
       const data = await response.json();
       setFavoriteLessons(data.lessons || []);
-    } catch (err) {
+    } catch (_err) {
       // Error handling could be added here if needed
     } finally {
       setLoading(false);

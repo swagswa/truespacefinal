@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { pool } from './db';
 
 export interface AuthenticatedUser {
   id: number;
@@ -27,6 +25,8 @@ export async function withAuth(
   handler: (req: AuthenticatedRequest) => Promise<NextResponse>
 ) {
   return async (req: AuthenticatedRequest) => {
+    const client = await pool.connect();
+    
     try {
       // Получаем токен из заголовка Authorization
       const authHeader = req.headers.get('authorization');
@@ -42,30 +42,42 @@ export async function withAuth(
       }
 
       // Ищем пользователя по telegramId
-      const user = await prisma.user.findUnique({
-        where: { telegramId },
-        select: {
-          id: true,
-          telegramId: true,
-          username: true,
-          firstName: true,
-          lastName: true,
-          name: true,
-          photoUrl: true,
-          languageCode: true,
-          isPremium: true
-        }
-      });
+      const userResult = await client.query(`
+        SELECT 
+          id, 
+          "telegramId", 
+          username, 
+          "firstName", 
+          "lastName", 
+          name, 
+          "photoUrl", 
+          "languageCode", 
+          "isPremium"
+        FROM users 
+        WHERE "telegramId" = $1
+      `, [telegramId]);
 
-      if (!user) {
+      if (userResult.rows.length === 0) {
         return NextResponse.json(
           { success: false, error: 'Invalid session' },
           { status: 401 }
         );
       }
 
+      const user = userResult.rows[0];
+
       // Добавляем пользователя к запросу
-      req.user = user;
+      req.user = {
+        id: user.id,
+        telegramId: user.telegramId,
+        username: user.username,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        name: user.name,
+        photoUrl: user.photoUrl,
+        languageCode: user.languageCode,
+        isPremium: user.isPremium
+      };
 
       // Вызываем оригинальный обработчик
       return await handler(req);
@@ -77,7 +89,7 @@ export async function withAuth(
         { status: 500 }
       );
     } finally {
-      await prisma.$disconnect();
+      client.release();
     }
   };
 }
@@ -90,6 +102,8 @@ export async function withOptionalAuth(
   handler: (req: AuthenticatedRequest) => Promise<NextResponse>
 ) {
   return async (req: AuthenticatedRequest) => {
+    const client = await pool.connect();
+    
     try {
       // Получаем токен из заголовка Authorization
       const authHeader = req.headers.get('authorization');
@@ -99,23 +113,34 @@ export async function withOptionalAuth(
 
       if (telegramId) {
         // Ищем пользователя по telegramId
-        const user = await prisma.user.findUnique({
-          where: { telegramId },
-          select: {
-            id: true,
-            telegramId: true,
-            username: true,
-            firstName: true,
-            lastName: true,
-            name: true,
-            photoUrl: true,
-            languageCode: true,
-            isPremium: true
-          }
-        });
+        const userResult = await client.query(`
+          SELECT 
+            id, 
+            "telegramId", 
+            username, 
+            "firstName", 
+            "lastName", 
+            name, 
+            "photoUrl", 
+            "languageCode", 
+            "isPremium"
+          FROM users 
+          WHERE "telegramId" = $1
+        `, [telegramId]);
 
-        if (user) {
-          req.user = user;
+        if (userResult.rows.length > 0) {
+          const user = userResult.rows[0];
+          req.user = {
+            id: user.id,
+            telegramId: user.telegramId,
+            username: user.username,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            name: user.name,
+            photoUrl: user.photoUrl,
+            languageCode: user.languageCode,
+            isPremium: user.isPremium
+          };
         }
       }
 
@@ -127,7 +152,7 @@ export async function withOptionalAuth(
       // При ошибке просто продолжаем без пользователя
       return await handler(req);
     } finally {
-      await prisma.$disconnect();
+      client.release();
     }
   };
 }
@@ -136,27 +161,44 @@ export async function withOptionalAuth(
  * Утилита для получения пользователя из telegramId
  */
 export async function getUserFromTelegramId(telegramId: string): Promise<AuthenticatedUser | null> {
+  const client = await pool.connect();
+  
   try {
-    const user = await prisma.user.findUnique({
-      where: { telegramId },
-      select: {
-        id: true,
-        telegramId: true,
-        username: true,
-        firstName: true,
-        lastName: true,
-        name: true,
-        photoUrl: true,
-        languageCode: true,
-        isPremium: true
-      }
-    });
+    const userResult = await client.query(`
+      SELECT 
+        id, 
+        "telegramId", 
+        username, 
+        "firstName", 
+        "lastName", 
+        name, 
+        "photoUrl", 
+        "languageCode", 
+        "isPremium"
+      FROM users 
+      WHERE "telegramId" = $1
+    `, [telegramId]);
 
-    return user;
+    if (userResult.rows.length === 0) {
+      return null;
+    }
+
+    const user = userResult.rows[0];
+    return {
+      id: user.id,
+      telegramId: user.telegramId,
+      username: user.username,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      name: user.name,
+      photoUrl: user.photoUrl,
+      languageCode: user.languageCode,
+      isPremium: user.isPremium
+    };
   } catch (error) {
     console.error('Get user from session error:', error);
     return null;
   } finally {
-    await prisma.$disconnect();
+    client.release();
   }
 }

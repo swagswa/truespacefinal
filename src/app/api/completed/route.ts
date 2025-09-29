@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
+import { pool } from '@/lib/db';
 import { validateLessonId, getUserFromRequest } from '@/lib/user-utils';
 
 export async function GET(request: NextRequest) {
+  const client = await pool.connect();
+  
   try {
     const user = await getUserFromRequest(request);
     
@@ -10,25 +12,35 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const userCompletions = await prisma.userLessonCompletion.findMany({
-      where: { userId: user.id },
-    });
+    const userCompletionsResult = await client.query(`
+      SELECT "lessonId", "completedAt"
+      FROM "UserLessonCompletion" 
+      WHERE "userId" = $1
+    `, [user.id]);
 
-    const completedIds = userCompletions.map((c: { lessonId: number }) => c.lessonId.toString());
+    const completed = userCompletionsResult.rows.map(row => ({
+      lessonId: row.lessonId.toString(),
+      completedAt: row.completedAt.toISOString()
+    }));
 
     return NextResponse.json({ 
       success: true, 
-      completed: completedIds.map((id: string) => ({ lessonId: id, completedAt: new Date().toISOString() }))
+      completed
     });
-  } catch {
+  } catch (error) {
+    console.error('Failed to fetch completed lessons:', error);
     return NextResponse.json(
       { error: 'Failed to fetch completed lessons' },
       { status: 500 }
     );
+  } finally {
+    client.release();
   }
 }
 
 export async function POST(request: NextRequest) {
+  const client = await pool.connect();
+  
   try {
     const { lessonId } = await request.json();
     const user = await getUserFromRequest(request);
@@ -43,52 +55,52 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if lesson exists
-    const lesson = await prisma.lesson.findUnique({
-      where: { id: validatedLessonId },
-    });
+    const lessonResult = await client.query(`
+      SELECT id FROM "Lesson" WHERE id = $1
+    `, [validatedLessonId]);
 
-    if (!lesson) {
+    if (lessonResult.rows.length === 0) {
       return NextResponse.json({ error: 'Lesson not found' }, { status: 404 });
     }
 
-    // Mark lesson as completed
-    await prisma.userLessonCompletion.upsert({
-      where: {
-        userId_lessonId: {
-          userId: user.id,
-          lessonId: validatedLessonId,
-        },
-      },
-      update: {
-        completedAt: new Date(),
-      },
-      create: {
-        userId: user.id,
-        lessonId: validatedLessonId,
-        completedAt: new Date(),
-      },
-    });
+    // Mark lesson as completed using UPSERT (INSERT ... ON CONFLICT)
+    await client.query(`
+      INSERT INTO "UserLessonCompletion" ("userId", "lessonId", "completedAt")
+      VALUES ($1, $2, NOW())
+      ON CONFLICT ("userId", "lessonId") 
+      DO UPDATE SET "completedAt" = NOW()
+    `, [user.id, validatedLessonId]);
 
-    // Return updated list of completed lesson IDs
-    const userCompletions = await prisma.userLessonCompletion.findMany({
-      where: { userId: user.id },
-    });
+    // Return updated list of completed lessons
+    const userCompletionsResult = await client.query(`
+      SELECT "lessonId", "completedAt"
+      FROM "UserLessonCompletion" 
+      WHERE "userId" = $1
+    `, [user.id]);
 
-    const completedIds = userCompletions.map((c: { lessonId: number }) => c.lessonId.toString());
+    const completed = userCompletionsResult.rows.map(row => ({
+      lessonId: row.lessonId.toString(),
+      completedAt: row.completedAt.toISOString()
+    }));
 
     return NextResponse.json({ 
       success: true, 
-      completed: completedIds.map((id: string) => ({ lessonId: id, completedAt: new Date().toISOString() }))
+      completed
     });
-  } catch {
+  } catch (error) {
+    console.error('Failed to mark lesson as completed:', error);
     return NextResponse.json(
       { error: 'Failed to mark lesson as completed' },
       { status: 500 }
     );
+  } finally {
+    client.release();
   }
 }
 
 export async function DELETE(request: NextRequest) {
+  const client = await pool.connect();
+  
   try {
     const { lessonId } = await request.json();
     const user = await getUserFromRequest(request);
@@ -103,30 +115,34 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Remove lesson completion
-    await prisma.userLessonCompletion.delete({
-      where: {
-        userId_lessonId: {
-          userId: user.id,
-          lessonId: validatedLessonId,
-        },
-      },
-    });
+    await client.query(`
+      DELETE FROM "UserLessonCompletion" 
+      WHERE "userId" = $1 AND "lessonId" = $2
+    `, [user.id, validatedLessonId]);
 
-    // Return updated list of completed lesson IDs
-    const userCompletions = await prisma.userLessonCompletion.findMany({
-      where: { userId: user.id },
-    });
+    // Return updated list of completed lessons
+    const userCompletionsResult = await client.query(`
+      SELECT "lessonId", "completedAt"
+      FROM "UserLessonCompletion" 
+      WHERE "userId" = $1
+    `, [user.id]);
 
-    const completedIds = userCompletions.map((c: { lessonId: number }) => c.lessonId.toString());
+    const completed = userCompletionsResult.rows.map(row => ({
+      lessonId: row.lessonId.toString(),
+      completedAt: row.completedAt.toISOString()
+    }));
 
     return NextResponse.json({ 
       success: true, 
-      completed: completedIds.map((id: string) => ({ lessonId: id, completedAt: new Date().toISOString() }))
+      completed
     });
-  } catch {
+  } catch (error) {
+    console.error('Failed to remove lesson completion:', error);
     return NextResponse.json(
       { error: 'Failed to remove lesson completion' },
       { status: 500 }
     );
+  } finally {
+    client.release();
   }
 }

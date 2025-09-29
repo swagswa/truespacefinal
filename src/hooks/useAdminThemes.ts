@@ -74,7 +74,7 @@ export function useAdminThemes() {
       
       if (result.success) {
         const newTheme = result.data;
-        setThemes(prev => [...prev, newTheme]);
+        setThemes(prev => [...(Array.isArray(prev) ? prev : []), newTheme]);
         return newTheme;
       } else {
         throw new Error(result.error || 'Failed to create theme');
@@ -111,7 +111,7 @@ export function useAdminThemes() {
       
       if (result.success) {
         const updatedTheme = result.data;
-        setThemes(prev => prev.map(theme => 
+        setThemes(prev => (Array.isArray(prev) ? prev : []).map(theme => 
           theme.id === updatedTheme.id ? updatedTheme : theme
         ));
         return updatedTheme;
@@ -145,7 +145,7 @@ export function useAdminThemes() {
       }
       
       if (result.success) {
-        setThemes(prev => prev.filter(theme => theme.id !== themeId));
+        setThemes(prev => (Array.isArray(prev) ? prev : []).filter(theme => theme.id !== themeId));
         return true;
       } else {
         throw new Error(result.error || 'Failed to delete theme');

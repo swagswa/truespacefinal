@@ -86,12 +86,12 @@ export default function TopicSlugPage() {
               <div className="rounded-xl border border-red-800 bg-red-900/20 p-6 text-center">
                 <p className="text-red-400">Ошибка загрузки: {error}</p>
               </div>
-            ) : subtopics.length === 0 ? (
+            ) : !subtopics || subtopics.length === 0 ? (
               <div className="rounded-xl border border-gray-800 bg-gray-900/20 p-6 text-center">
                 <p className="text-gray-400">Подтемы не найдены</p>
               </div>
             ) : (
-              subtopics.map((subtopic) => {
+              subtopics && subtopics.map((subtopic) => {
                 const isArchive = subtopic.slug === 'archive';
                 
                 return (

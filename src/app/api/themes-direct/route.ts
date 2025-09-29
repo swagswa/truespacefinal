@@ -33,7 +33,6 @@ export async function GET() {
           s.slug,
           s.title,
           s.description,
-          s."themeId",
           s."createdAt",
           s."updatedAt"
         FROM "Subtopic" s
@@ -51,7 +50,6 @@ export async function GET() {
             l.slug,
             l.title,
             l.content,
-            l."subtopicId",
             l."createdAt",
             l."updatedAt"
           FROM "Lesson" l
@@ -60,58 +58,31 @@ export async function GET() {
         `, [subtopic.id]);
 
         subtopics.push({
-          id: subtopic.id,
-          title: subtopic.title,
-          slug: subtopic.slug,
-          description: subtopic.description,
-          themeId: subtopic.themeId,
-          createdAt: subtopic.createdAt,
-          updatedAt: subtopic.updatedAt,
+          ...subtopic,
           lessons: lessonsResult.rows
         });
       }
 
       themes.push({
-        id: theme.id,
-        title: theme.title,
-        slug: theme.slug,
-        description: theme.description,
-        icon: theme.icon,
-        createdAt: theme.createdAt,
-        updatedAt: theme.updatedAt,
+        ...theme,
         subtopics
       });
     }
 
     return NextResponse.json({
-      success: true,
-      data: {
-        themes,
-        pagination: {
-          page: 1,
-          limit: themes.length,
-          total: themes.length,
-          totalPages: 1
-        }
+      themes,
+      pagination: {
+        page: 1,
+        limit: themes.length,
+        total: themes.length,
+        totalPages: 1
       }
     });
 
   } catch (error) {
     console.error('Error fetching themes:', error);
     return NextResponse.json(
-      { 
-        success: false,
-        error: 'Failed to fetch themes',
-        data: {
-          themes: [],
-          pagination: {
-            page: 1,
-            limit: 0,
-            total: 0,
-            totalPages: 0
-          }
-        }
-      }, 
+      { error: 'Failed to fetch themes' },
       { status: 500 }
     );
   } finally {

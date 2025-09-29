@@ -1,31 +1,40 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
+import { Pool } from 'pg';
+
+// Создаем пул соединений с базой данных
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false
+  }
+});
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
 ) {
+  const client = await pool.connect();
   try {
     const { slug } = await params;
     
     // Находим тему по slug'у
-    const theme = await prisma.theme.findUnique({
-      where: { slug },
-      include: {
-        subtopics: {
-          orderBy: {
-            createdAt: 'asc'
-          }
-        }
-      }
-    });
+    const themeResult = await client.query(`
+      SELECT id, title, slug, description, icon, "createdAt", "updatedAt"
+      FROM "Theme"
+      WHERE slug = $1
+    `, [slug]);
 
-    if (!theme) {
+    if (themeResult.rows.length === 0) {
       return NextResponse.json(
-        { error: `Theme with slug "${slug}" not found` },
+        { 
+          success: false,
+          data: { error: `Theme with slug "${slug}" not found` }
+        },
         { status: 404 }
       );
     }
+
+    const theme = themeResult.rows[0];
 
     // Получаем параметры пагинации из query string
     const url = new URL(request.url);
@@ -34,36 +43,53 @@ export async function GET(
     const sortBy = url.searchParams.get('sortBy') || 'createdAt';
     const sortOrder = url.searchParams.get('sortOrder') || 'asc';
 
-    // Применяем пагинацию
-    const startIndex = (page - 1) * limit;
-    const endIndex = startIndex + limit;
-    const paginatedSubtopics = theme.subtopics.slice(startIndex, endIndex);
+    // Получаем subtopics для этой темы с пагинацией
+    const offset = (page - 1) * limit;
+    const subtopicsResult = await client.query(`
+      SELECT id, title, slug, description, "themeId", "createdAt", "updatedAt"
+      FROM "Subtopic"
+      WHERE "themeId" = $1
+      ORDER BY "${sortBy}" ${sortOrder.toUpperCase()}
+      LIMIT $2 OFFSET $3
+    `, [theme.id, limit, offset]);
+
+    // Получаем общее количество subtopics для пагинации
+    const countResult = await client.query(`
+      SELECT COUNT(*) as total
+      FROM "Subtopic"
+      WHERE "themeId" = $1
+    `, [theme.id]);
+
+    const total = parseInt(countResult.rows[0].total);
 
     // Форматируем ответ
     const response = {
-      subtopics: paginatedSubtopics.map(subtopic => ({
-        id: subtopic.id,
-        title: subtopic.title,
-        slug: subtopic.slug,
-        description: subtopic.description,
-        themeId: subtopic.themeId,
-        createdAt: subtopic.createdAt,
-        updatedAt: subtopic.updatedAt
-      })),
-      theme: {
-        id: theme.id,
-        title: theme.title,
-        slug: theme.slug,
-        description: theme.description,
-        icon: theme.icon,
-        createdAt: theme.createdAt,
-        updatedAt: theme.updatedAt
-      },
-      pagination: {
-        page,
-        limit,
-        total: theme.subtopics.length,
-        totalPages: Math.ceil(theme.subtopics.length / limit)
+      success: true,
+      data: {
+        subtopics: subtopicsResult.rows.map(subtopic => ({
+          id: subtopic.id,
+          title: subtopic.title,
+          slug: subtopic.slug,
+          description: subtopic.description,
+          themeId: subtopic.themeId,
+          createdAt: subtopic.createdAt,
+          updatedAt: subtopic.updatedAt
+        })),
+        theme: {
+          id: theme.id,
+          title: theme.title,
+          slug: theme.slug,
+          description: theme.description,
+          icon: theme.icon,
+          createdAt: theme.createdAt,
+          updatedAt: theme.updatedAt
+        },
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit)
+        }
       }
     };
 
@@ -72,8 +98,13 @@ export async function GET(
   } catch (error) {
     console.error('Error fetching subtopics:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { 
+        success: false,
+        data: { error: 'Internal server error' }
+      },
       { status: 500 }
     );
+  } finally {
+    client.release();
   }
 }

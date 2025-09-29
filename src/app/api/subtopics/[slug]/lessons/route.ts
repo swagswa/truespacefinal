@@ -1,43 +1,59 @@
 import { NextRequest } from 'next/server';
-import { prisma } from '@/lib/db';
+import { Pool } from 'pg';
 import { 
   createNotFoundError,
   createSuccessResponse,
   createInternalError 
 } from '@/lib/api-error-handler';
 
+// Создаем пул соединений с базой данных
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false
+  }
+});
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
 ) {
+  const client = await pool.connect();
   try {
     const { slug } = await params;
 
     // Найти подтему по slug
-    const subtopic = await prisma.subtopic.findFirst({
-      where: {
-        slug: slug
-      },
-      include: {
-        lessons: {
-          orderBy: {
-            createdAt: 'asc'
-          }
-        },
-        theme: true
-      }
-    });
+    const subtopicResult = await client.query(`
+      SELECT s.id, s.title, s.description, s.slug, s."themeId", s."createdAt", s."updatedAt",
+             t.id as theme_id, t.title as theme_title, t.slug as theme_slug, 
+             t.description as theme_description, t.icon as theme_icon,
+             t."createdAt" as theme_created_at, t."updatedAt" as theme_updated_at
+      FROM "Subtopic" s
+      LEFT JOIN "Theme" t ON s."themeId" = t.id
+      WHERE s.slug = $1
+    `, [slug]);
 
-    if (!subtopic) {
+    if (subtopicResult.rows.length === 0) {
       return createNotFoundError('Subtopic not found');
     }
 
+    const subtopicData = subtopicResult.rows[0];
+
+    // Получить уроки для этой подтемы
+    const lessonsResult = await client.query(`
+      SELECT id, slug, title, content, "subtopicId", "createdAt", "updatedAt"
+      FROM "Lesson"
+      WHERE "subtopicId" = $1
+      ORDER BY "createdAt" ASC
+    `, [subtopicData.id]);
+
     // Преобразуем данные в нужный формат
-    const formattedLessons = subtopic.lessons.map((lesson) => ({
+    const formattedLessons = lessonsResult.rows.map((lesson) => ({
       id: lesson.id,
+      slug: lesson.slug,
       title: lesson.title,
-      description: lesson.description || '',
-      duration: lesson.duration || 30,
+      description: '', // Поле description отсутствует в таблице
+      duration: 30, // Поле duration отсутствует в таблице, используем значение по умолчанию
       difficulty: 'Начальный', // Можно добавить в схему позже
       videoUrl: `/videos/${lesson.id}.mp4`,
       subtopicSlug: slug,
@@ -48,14 +64,22 @@ export async function GET(
     }));
 
     const formattedSubtopic = {
-      id: subtopic.id,
-      title: subtopic.title,
-      description: subtopic.description,
-      slug: subtopic.slug,
-      themeId: subtopic.themeId,
-      theme: subtopic.theme,
-      createdAt: subtopic.createdAt,
-      updatedAt: subtopic.updatedAt
+      id: subtopicData.id,
+      title: subtopicData.title,
+      description: subtopicData.description,
+      slug: subtopicData.slug,
+      themeId: subtopicData.themeId,
+      theme: {
+        id: subtopicData.theme_id,
+        title: subtopicData.theme_title,
+        slug: subtopicData.theme_slug,
+        description: subtopicData.theme_description,
+        icon: subtopicData.theme_icon,
+        createdAt: subtopicData.theme_created_at,
+        updatedAt: subtopicData.theme_updated_at
+      },
+      createdAt: subtopicData.createdAt,
+      updatedAt: subtopicData.updatedAt
     };
 
     return createSuccessResponse({
@@ -68,5 +92,7 @@ export async function GET(
 
   } catch (error) {
     return createInternalError(error);
+  } finally {
+    client.release();
   }
 }

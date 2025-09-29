@@ -1,5 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
+import { Pool } from 'pg';
+
+// Создаем пул соединений с базой данных
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false
+  }
+});
 
 // Функция для создания slug из названия
 function createSlug(name: string): string {
@@ -14,17 +22,18 @@ function createSlug(name: string): string {
 
 // GET - получить все темы
 export async function GET() {
+  const client = await pool.connect();
   try {
-    const themes = await prisma.theme.findMany({
-      orderBy: {
-        createdAt: 'asc'
-      }
-    });
+    const result = await client.query(`
+      SELECT id, title, description, icon, slug, "createdAt", "updatedAt"
+      FROM "Theme"
+      ORDER BY "createdAt" ASC
+    `);
 
     // Преобразуем данные в формат, ожидаемый админ-панелью
-    const formattedThemes = themes.map((theme) => ({
+    const formattedThemes = result.rows.map((theme) => ({
       id: theme.id,
-      name: theme.title, // В базе поле называется title, в админке - name
+      name: theme.title,
       description: theme.description,
       icon: theme.icon,
       slug: theme.slug,
@@ -42,11 +51,14 @@ export async function GET() {
       { success: false, error: 'Failed to fetch themes' },
       { status: 500 }
     );
+  } finally {
+    client.release();
   }
 }
 
 // POST - создать новую тему
 export async function POST(request: NextRequest) {
+  const client = await pool.connect();
   try {
     const body = await request.json();
     const { name, description, icon } = body;
@@ -62,16 +74,12 @@ export async function POST(request: NextRequest) {
     const slug = createSlug(name);
 
     // Проверка на дублирование названия или slug
-    const existingTheme = await prisma.theme.findFirst({
-      where: {
-        OR: [
-          { title: name.trim() },
-          { slug: slug }
-        ]
-      }
-    });
+    const existingResult = await client.query(`
+      SELECT id FROM "Theme"
+      WHERE title = $1 OR slug = $2
+    `, [name.trim(), slug]);
 
-    if (existingTheme) {
+    if (existingResult.rows.length > 0) {
       return NextResponse.json(
         { success: false, error: 'Theme with this name already exists' },
         { status: 409 }
@@ -79,14 +87,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Создание новой темы в базе данных
-    const newTheme = await prisma.theme.create({
-      data: {
-        title: name.trim(),
-        description: description.trim(),
-        icon,
-        slug
-      }
-    });
+    const result = await client.query(`
+      INSERT INTO "Theme" (title, description, icon, slug, "createdAt", "updatedAt")
+      VALUES ($1, $2, $3, $4, NOW(), NOW())
+      RETURNING id, title, description, icon, slug, "createdAt", "updatedAt"
+    `, [name.trim(), description.trim(), icon, slug]);
+
+    const newTheme = result.rows[0];
 
     // Возвращаем в формате, ожидаемом админ-панелью
     const formattedTheme = {
@@ -110,11 +117,14 @@ export async function POST(request: NextRequest) {
       { success: false, error: 'Failed to create theme' },
       { status: 500 }
     );
+  } finally {
+    client.release();
   }
 }
 
 // PUT - обновить тему
 export async function PUT(request: NextRequest) {
+  const client = await pool.connect();
   try {
     const body = await request.json();
     const { id, name, description, icon } = body;
@@ -128,13 +138,14 @@ export async function PUT(request: NextRequest) {
     }
 
     const slug = createSlug(name);
+    const themeId = parseInt(id);
 
     // Проверка существования темы
-    const existingTheme = await prisma.theme.findUnique({
-      where: { id: parseInt(id) }
-    });
+    const existingResult = await client.query(`
+      SELECT id FROM "Theme" WHERE id = $1
+    `, [themeId]);
 
-    if (!existingTheme) {
+    if (existingResult.rows.length === 0) {
       return NextResponse.json(
         { success: false, error: 'Theme not found' },
         { status: 404 }
@@ -142,21 +153,12 @@ export async function PUT(request: NextRequest) {
     }
 
     // Проверка на дублирование названия или slug (исключая текущую тему)
-    const duplicateTheme = await prisma.theme.findFirst({
-      where: {
-        AND: [
-          { id: { not: parseInt(id) } },
-          {
-            OR: [
-              { title: name.trim() },
-              { slug: slug }
-            ]
-          }
-        ]
-      }
-    });
+    const duplicateResult = await client.query(`
+      SELECT id FROM "Theme"
+      WHERE id != $1 AND (title = $2 OR slug = $3)
+    `, [themeId, name.trim(), slug]);
 
-    if (duplicateTheme) {
+    if (duplicateResult.rows.length > 0) {
       return NextResponse.json(
         { success: false, error: 'Theme with this name already exists' },
         { status: 409 }
@@ -164,15 +166,14 @@ export async function PUT(request: NextRequest) {
     }
 
     // Обновление темы в базе данных
-    const updatedTheme = await prisma.theme.update({
-      where: { id: parseInt(id) },
-      data: {
-        title: name.trim(),
-        description: description.trim(),
-        icon,
-        slug
-      }
-    });
+    const result = await client.query(`
+      UPDATE "Theme"
+      SET title = $1, description = $2, icon = $3, slug = $4, "updatedAt" = NOW()
+      WHERE id = $5
+      RETURNING id, title, description, icon, slug, "createdAt", "updatedAt"
+    `, [name.trim(), description.trim(), icon, slug, themeId]);
+
+    const updatedTheme = result.rows[0];
 
     // Возвращаем в формате, ожидаемом админ-панелью
     const formattedTheme = {
@@ -196,11 +197,14 @@ export async function PUT(request: NextRequest) {
       { success: false, error: 'Failed to update theme' },
       { status: 500 }
     );
+  } finally {
+    client.release();
   }
 }
 
 // DELETE - удалить тему
 export async function DELETE(request: NextRequest) {
+  const client = await pool.connect();
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
@@ -214,32 +218,35 @@ export async function DELETE(request: NextRequest) {
 
     const themeId = parseInt(id);
 
-    // Проверка существования темы
-    const existingTheme = await prisma.theme.findUnique({
-      where: { id: themeId }
-    });
+    // Проверка существования темы и получение данных перед удалением
+    const existingResult = await client.query(`
+      SELECT id, title, description, icon, slug, "createdAt", "updatedAt"
+      FROM "Theme" WHERE id = $1
+    `, [themeId]);
     
-    if (!existingTheme) {
+    if (existingResult.rows.length === 0) {
       return NextResponse.json(
         { success: false, error: 'Theme not found' },
         { status: 404 }
       );
     }
 
+    const existingTheme = existingResult.rows[0];
+
     // Удаление темы из базы данных
-    const deletedTheme = await prisma.theme.delete({
-      where: { id: themeId }
-    });
+    await client.query(`
+      DELETE FROM "Theme" WHERE id = $1
+    `, [themeId]);
 
     // Возвращаем в формате, ожидаемом админ-панелью
     const formattedTheme = {
-      id: deletedTheme.id,
-      name: deletedTheme.title,
-      description: deletedTheme.description,
-      icon: deletedTheme.icon,
-      slug: deletedTheme.slug,
-      createdAt: deletedTheme.createdAt.toISOString(),
-      updatedAt: deletedTheme.updatedAt.toISOString()
+      id: existingTheme.id,
+      name: existingTheme.title,
+      description: existingTheme.description,
+      icon: existingTheme.icon,
+      slug: existingTheme.slug,
+      createdAt: existingTheme.createdAt.toISOString(),
+      updatedAt: existingTheme.updatedAt.toISOString()
     };
 
     return NextResponse.json({
@@ -254,5 +261,7 @@ export async function DELETE(request: NextRequest) {
       { success: false, error: 'Failed to delete theme' },
       { status: 500 }
     );
+  } finally {
+    client.release();
   }
 }

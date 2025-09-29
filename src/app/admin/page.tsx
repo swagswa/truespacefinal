@@ -5,9 +5,8 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, Plus, Save, Trash2, Loader2, AlertCircle, Settings, BookOpen, Users, FolderTree } from 'lucide-react';
 import { IconSelector } from '@/components/ui/icon-selector';
 import { useAdminThemes } from '@/hooks/useAdminThemes';
-import { useAdminLessons } from '@/hooks/useAdminLessons';
 import { useAdminSubtopics } from '@/lib/hooks/useAdminSubtopics';
-import { renderIcon, getIconSymbol } from '@/lib/utils/icons';
+import { renderIcon } from '@/lib/utils/icons';
 import LessonsManager from '@/components/admin/LessonsManager';
 
 export default function AdminPage() {
@@ -17,12 +16,8 @@ export default function AdminPage() {
   // Используем реальные хуки для работы с API
   const {
     themes,
-    loading: themesLoading,
-    error: themesError,
     createTheme,
-    updateTheme,
     deleteTheme,
-    clearError: clearThemesError
   } = useAdminThemes();
 
   const {
@@ -30,19 +25,8 @@ export default function AdminPage() {
     loading: subtopicsLoading,
     error: subtopicsError,
     createSubtopic,
-    updateSubtopic,
     deleteSubtopic,
   } = useAdminSubtopics();
-
-  const {
-    lessons,
-    loading: lessonsLoading,
-    error: lessonsError,
-    createLesson,
-    updateLesson,
-    deleteLesson,
-    clearError: clearLessonsError
-  } = useAdminLessons();
   
   // Theme form state
   const [themeForm, setThemeForm] = useState({
@@ -56,15 +40,6 @@ export default function AdminPage() {
     title: '',
     description: '',
     themeId: ''
-  });
-
-  // Lesson form state
-  const [lessonForm, setLessonForm] = useState({
-    name: '',
-    theme: '',
-    duration: '',
-    date: '',
-    description: ''
   });
   
   const handleCreateTheme = async () => {
@@ -94,22 +69,6 @@ export default function AdminPage() {
       }
     }
   };
-
-  const handleCreateLesson = async () => {
-    if (lessonForm.name && lessonForm.theme && lessonForm.duration && lessonForm.date) {
-      const success = await createLesson({
-        name: lessonForm.name,
-        theme: lessonForm.theme,
-        duration: parseInt(lessonForm.duration),
-        date: lessonForm.date,
-        description: lessonForm.description
-      });
-      
-      if (success) {
-        setLessonForm({ name: '', theme: '', duration: '', date: '', description: '' });
-      }
-    }
-  };
   
   const handleDeleteTheme = async (id: number) => {
     await deleteTheme(id);
@@ -117,10 +76,6 @@ export default function AdminPage() {
   
   const handleDeleteSubtopic = async (id: number) => {
     await deleteSubtopic(id);
-  };
-
-  const handleDeleteLesson = async (id: number) => {
-    await deleteLesson(id);
   };
 
   const handleBack = () => {
@@ -387,7 +342,7 @@ export default function AdminPage() {
               <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-6">
                 <h3 className="text-lg font-semibold text-white mb-4">Существующие сабтопики</h3>
                 
-                {subtopics.length > 0 ? (
+                {subtopics && subtopics.length > 0 ? (
                   <div className="overflow-x-auto">
                     <table className="w-full">
                       <thead>

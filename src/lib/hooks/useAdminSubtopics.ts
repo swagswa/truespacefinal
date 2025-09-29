@@ -59,12 +59,25 @@ export function useAdminSubtopics() {
         throw new Error('Ошибка при загрузке сабтопиков');
       }
 
-      const data: AdminSubtopicsResponse = await response.json();
+      const result = await response.json();
       
-      setSubtopics(data.subtopics);
-      setTotal(data.total);
-      setPage(data.page);
-      setTotalPages(data.totalPages);
+      // Handle both formats: { success: true, data: [...] } and { subtopics: [...] }
+      if (result.success && Array.isArray(result.data)) {
+        setSubtopics(result.data);
+        setTotal(result.total || result.data.length);
+        setPage(result.page || 1);
+        setTotalPages(result.totalPages || 1);
+      } else if (result.subtopics) {
+        setSubtopics(Array.isArray(result.subtopics) ? result.subtopics : []);
+        setTotal(result.total);
+        setPage(result.page);
+        setTotalPages(result.totalPages);
+      } else {
+        setSubtopics([]);
+        setTotal(0);
+        setPage(1);
+        setTotalPages(0);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Неизвестная ошибка');
     } finally {
@@ -88,7 +101,7 @@ export function useAdminSubtopics() {
 
     const result = await response.json();
     const newSubtopic = result.success ? result.data : result;
-    setSubtopics(prev => [newSubtopic, ...prev]);
+    setSubtopics(prev => [newSubtopic, ...(Array.isArray(prev) ? prev : [])]);
     setTotal(prev => prev + 1);
     
     return newSubtopic;
@@ -110,7 +123,7 @@ export function useAdminSubtopics() {
 
     const result = await response.json();
     const updatedSubtopic = result.success ? result.data : result;
-    setSubtopics(prev => prev.map(subtopic => 
+    setSubtopics(prev => (Array.isArray(prev) ? prev : []).map(subtopic => 
       subtopic.id === id ? updatedSubtopic : subtopic
     ));
     
@@ -131,7 +144,7 @@ export function useAdminSubtopics() {
       throw new Error(errorData.error || 'Ошибка при удалении сабтопика');
     }
 
-    setSubtopics(prev => prev.filter(subtopic => subtopic.id !== id));
+    setSubtopics(prev => (Array.isArray(prev) ? prev : []).filter(subtopic => subtopic.id !== id));
     setTotal(prev => prev - 1);
   }, []);
 

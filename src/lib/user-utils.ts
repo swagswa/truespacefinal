@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/db';
+import { pool } from '@/lib/db';
 import { NextRequest } from 'next/server';
 
 /**
@@ -16,15 +16,29 @@ export function getSessionId(request: NextRequest): string {
  * @returns объект пользователя
  */
 export async function getOrCreateUser(sessionId: string) {
-  const user = await prisma.user.upsert({
-    where: { sessionId },
-    update: {},
-    create: { 
-      sessionId 
-    },
-  });
+  const client = await pool.connect();
+  
+  try {
+    // Сначала пытаемся найти пользователя
+    const existingUserResult = await client.query(
+      'SELECT id, "sessionId", "createdAt", "updatedAt" FROM users WHERE "sessionId" = $1',
+      [sessionId]
+    );
 
-  return user;
+    if (existingUserResult.rows.length > 0) {
+      return existingUserResult.rows[0];
+    }
+
+    // Если пользователь не найден, создаем нового
+    const newUserResult = await client.query(
+      'INSERT INTO users ("sessionId", "createdAt", "updatedAt") VALUES ($1, NOW(), NOW()) RETURNING id, "sessionId", "createdAt", "updatedAt"',
+      [sessionId]
+    );
+
+    return newUserResult.rows[0];
+  } finally {
+    client.release();
+  }
 }
 
 /**

@@ -104,7 +104,7 @@ export default function AuthProvider({ children }: AuthProviderProps) {
     };
 
     autoAuthenticate();
-  }, []); // Убираем authState из зависимостей
+  }, [authState]); // Добавляем authState в зависимости
 
   return (
     <AuthContext.Provider value={authState}>

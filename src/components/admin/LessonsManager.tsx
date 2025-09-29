@@ -169,7 +169,7 @@ export default function LessonsManager({ subtopics: propSubtopics }: LessonsMana
   } = useAdminLessons();
 
   const { subtopics: hookSubtopics, fetchSubtopics } = useAdminSubtopics();
-  const subtopics = propSubtopics || hookSubtopics;
+  const subtopics = propSubtopics || hookSubtopics || [];
 
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);

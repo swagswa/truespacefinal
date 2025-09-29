@@ -17,7 +17,7 @@ export default function CompletedPage() {
   const [loading, setLoading] = useState(true);
 
   
-  const { user, sessionId } = useAuth();
+  const { user: _user, sessionId } = useAuth();
   const { isFavorite, toggleFavorite } = useFavorites();
   const { isCompleted, toggleCompleted } = useCompleted();
 
@@ -39,7 +39,7 @@ export default function CompletedPage() {
     
     try {
       await toggleCompleted(lessonId);
-    } catch (error) {
+    } catch (_error) {
       // If error occurs, reload the lessons to restore correct state
       loadCompletedLessons();
     }
@@ -63,7 +63,7 @@ export default function CompletedPage() {
       
       const data = await response.json();
       setCompletedLessons(data.lessons || []);
-    } catch (err) {
+    } catch (_err) {
       // Error handling could be added here if needed
     } finally {
       setLoading(false);

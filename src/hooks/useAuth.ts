@@ -230,7 +230,7 @@ export const useAuthState = (): AuthContextType => {
   // Проверяем аутентификацию при загрузке только один раз
   useEffect(() => {
     checkAuth();
-  }, []); // Убираем checkAuth из зависимостей
+  }, [checkAuth]); // Добавляем checkAuth в зависимости
 
   return {
     ...state,

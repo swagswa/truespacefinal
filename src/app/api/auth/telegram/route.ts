@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { Pool } from 'pg';
 import crypto from 'crypto';
 
-const prisma = new PrismaClient();
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+});
 
 interface TelegramUser {
   id: number;
@@ -143,7 +145,7 @@ export async function POST(request: NextRequest) {
     let userData;
     try {
       userData = validateTelegramInitData(initData, botToken);
-    } catch (error) {
+    } catch (_error) {
       return NextResponse.json(
         { success: false, error: 'Invalid initData' },
         { status: 401 }
@@ -151,28 +153,39 @@ export async function POST(request: NextRequest) {
     }
 
     // Используем upsert для создания или обновления пользователя
-    const user = await prisma.user.upsert({
-      where: { telegramId: userData.id.toString() },
-      update: {
-        username: userData.username || null,
-        firstName: userData.first_name || null,
-        lastName: userData.last_name || null,
-        photoUrl: userData.photo_url || null,
-        languageCode: userData.language_code || null,
-        isPremium: userData.is_premium || false,
-        name: userData.first_name || userData.username || 'Telegram User'
-      },
-      create: {
-        telegramId: userData.id.toString(),
-        username: userData.username || null,
-        firstName: userData.first_name || null,
-        lastName: userData.last_name || null,
-        photoUrl: userData.photo_url || null,
-        languageCode: userData.language_code || null,
-        isPremium: userData.is_premium || false,
-        name: userData.first_name || userData.username || 'Telegram User'
-      }
-    });
+    const client = await pool.connect();
+    let user;
+    try {
+      const telegramId = userData.id.toString();
+      const username = userData.username || null;
+      const firstName = userData.first_name || null;
+      const lastName = userData.last_name || null;
+      const photoUrl = userData.photo_url || null;
+      const languageCode = userData.language_code || null;
+      const isPremium = userData.is_premium || false;
+      const name = userData.first_name || userData.username || 'Telegram User';
+
+      // Используем ON CONFLICT для upsert операции
+      const result = await client.query(`
+        INSERT INTO users ("telegramId", "username", "firstName", "lastName", "photoUrl", "languageCode", "isPremium", "name", "createdAt", "updatedAt")
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
+        ON CONFLICT ("telegramId") 
+        DO UPDATE SET 
+          "username" = EXCLUDED."username",
+          "firstName" = EXCLUDED."firstName",
+          "lastName" = EXCLUDED."lastName",
+          "photoUrl" = EXCLUDED."photoUrl",
+          "languageCode" = EXCLUDED."languageCode",
+          "isPremium" = EXCLUDED."isPremium",
+          "name" = EXCLUDED."name",
+          "updatedAt" = NOW()
+        RETURNING *
+      `, [telegramId, username, firstName, lastName, photoUrl, languageCode, isPremium, name]);
+
+      user = result.rows[0];
+    } finally {
+      client.release();
+    }
 
 
 
@@ -208,7 +221,7 @@ export async function POST(request: NextRequest) {
     let errorMessage = 'Internal server error';
     
     if (error instanceof Error) {
-      if (error.message.includes('Prisma') || error.message.includes('database')) {
+      if (error.message.includes('database') || error.message.includes('connection')) {
         errorMessage = 'Database error';
         console.error('Database operation failed');
       } else if (error.message.includes('validation') || error.message.includes('invalid')) {
@@ -221,17 +234,12 @@ export async function POST(request: NextRequest) {
       { success: false, error: errorMessage },
       { status: statusCode }
     );
-  } finally {
-    try {
-      await prisma.$disconnect();
-    } catch (disconnectError) {
-      console.error('Error disconnecting from Prisma:', disconnectError);
-    }
   }
 }
 
 // GET метод для проверки текущей сессии
 export async function GET(request: NextRequest) {
+  const client = await pool.connect();
   try {
     const sessionId = request.headers.get('authorization')?.replace('Bearer ', '');
 
@@ -242,20 +250,13 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const user = await prisma.user.findUnique({
-      where: { sessionId },
-      select: {
-        id: true,
-        telegramId: true,
-        username: true,
-        firstName: true,
-        lastName: true,
-        name: true,
-        photoUrl: true,
-        languageCode: true,
-        isPremium: true
-      }
-    });
+    const result = await client.query(`
+      SELECT id, "telegramId", username, "firstName", "lastName", name, "photoUrl", "languageCode", "isPremium"
+      FROM users
+      WHERE "sessionId" = $1
+    `, [sessionId]);
+
+    const user = result.rows[0];
 
     if (!user) {
       return NextResponse.json(
@@ -276,6 +277,6 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   } finally {
-    await prisma.$disconnect();
+    client.release();
   }
 }

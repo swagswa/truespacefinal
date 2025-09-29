@@ -75,7 +75,7 @@ export function useAdminSubtopics() {
       
       if (result.success) {
         const newSubtopic = result.data;
-        setSubtopics(prev => [...prev, newSubtopic]);
+        setSubtopics(prev => [...(Array.isArray(prev) ? prev : []), newSubtopic]);
         return newSubtopic;
       } else {
         throw new Error(result.error || 'Failed to create subtopic');
@@ -113,7 +113,7 @@ export function useAdminSubtopics() {
       if (result.success) {
         const updatedSubtopic = result.data;
         setSubtopics(prev => 
-          prev.map(subtopic => 
+          (Array.isArray(prev) ? prev : []).map(subtopic => 
             subtopic.id === updatedSubtopic.id ? updatedSubtopic : subtopic
           )
         );
@@ -152,7 +152,7 @@ export function useAdminSubtopics() {
       }
       
       if (result.success) {
-        setSubtopics(prev => prev.filter(subtopic => subtopic.id !== id));
+        setSubtopics(prev => (Array.isArray(prev) ? prev : []).filter(subtopic => subtopic.id !== id));
         return true;
       } else {
         throw new Error(result.error || 'Failed to delete subtopic');

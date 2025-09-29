@@ -83,7 +83,7 @@ export function useAdminLessons(themeFilter?: string) {
       
       if (result.success) {
         const newLesson = result.data;
-        setLessons(prev => [...prev, newLesson]);
+        setLessons(prev => [...(Array.isArray(prev) ? prev : []), newLesson]);
         return newLesson;
       } else {
         throw new Error(result.error || 'Failed to create lesson');
@@ -120,7 +120,7 @@ export function useAdminLessons(themeFilter?: string) {
       
       if (result.success) {
         const updatedLesson = result.data;
-        setLessons(prev => prev.map(lesson => 
+        setLessons(prev => (Array.isArray(prev) ? prev : []).map(lesson => 
           lesson.id === updatedLesson.id ? updatedLesson : lesson
         ));
         return updatedLesson;
@@ -154,7 +154,7 @@ export function useAdminLessons(themeFilter?: string) {
       }
       
       if (result.success) {
-        setLessons(prev => prev.filter(lesson => lesson.id !== lessonId));
+        setLessons(prev => (Array.isArray(prev) ? prev : []).filter(lesson => lesson.id !== lessonId));
         return true;
       } else {
         throw new Error(result.error || 'Failed to delete lesson');

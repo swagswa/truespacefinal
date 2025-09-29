@@ -181,19 +181,22 @@ export class ApiClient {
     try {
       console.log('🌐 ApiClient: Making request to /api/themes');
       const response = await this.get<{
-        themes: Theme[];
-        pagination: {
-          page: number;
-          limit: number;
-          total: number;
-          totalPages: number;
+        success: boolean;
+        data: {
+          themes: Theme[];
+          pagination: {
+            page: number;
+            limit: number;
+            total: number;
+            totalPages: number;
+          };
         };
       }>('/api/themes');
       
       console.log('🌐 ApiClient: Received response:', response);
       return {
-        themes: response.themes,
-        pagination: response.pagination
+        themes: response.data.themes,
+        pagination: response.data.pagination
       };
     } catch (error) {
       console.error('🌐 ApiClient: Error fetching themes:', error);
@@ -308,7 +311,19 @@ export class ApiClient {
       throw new Error(`Failed to fetch subtopics: ${response.statusText}`);
     }
     
-    return await response.json();
+    const result = await response.json();
+    
+    // Проверяем формат ответа и извлекаем данные
+    if (result.success && result.data) {
+      return {
+        subtopics: result.data.subtopics || [],
+        theme: result.data.theme,
+        pagination: result.data.pagination
+      };
+    }
+    
+    // Если формат не соответствует ожидаемому, возвращаем как есть
+    return result;
   }
 
   async createSubtopic(themeSlug: string, data: CreateSubtopicRequest): Promise<Subtopic> {
