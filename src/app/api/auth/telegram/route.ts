@@ -1,10 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Pool } from 'pg';
 import crypto from 'crypto';
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-});
+import { getPool } from '@/lib/db';
 
 interface TelegramUser {
   id: number;
@@ -153,6 +149,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Используем upsert для создания или обновления пользователя
+    const pool = getPool();
     const client = await pool.connect();
     let user;
     try {
@@ -239,6 +236,7 @@ export async function POST(request: NextRequest) {
 
 // GET метод для проверки текущей сессии
 export async function GET(request: NextRequest) {
+  const pool = getPool();
   const client = await pool.connect();
   try {
     const sessionId = request.headers.get('authorization')?.replace('Bearer ', '');
