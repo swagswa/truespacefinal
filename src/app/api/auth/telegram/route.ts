@@ -236,9 +236,10 @@ export async function POST(request: NextRequest) {
 
 // GET метод для проверки текущей сессии
 export async function GET(request: NextRequest) {
-  const pool = getPool();
-  const client = await pool.connect();
+  let client;
   try {
+    const pool = getPool();
+    client = await pool.connect();
     const sessionId = request.headers.get('authorization')?.replace('Bearer ', '');
 
     if (!sessionId) {
@@ -270,11 +271,26 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     console.error('Session check error:', error);
+    
+    // Специальная обработка ошибок подключения
+    if (error instanceof Error) {
+      if (error.message.includes('Connection terminated') || 
+          error.message.includes('timeout') ||
+          error.message.includes('ECONNREFUSED')) {
+        return NextResponse.json(
+          { success: false, error: 'Database connection error' },
+          { status: 503 }
+        );
+      }
+    }
+    
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }
     );
   } finally {
-    client.release();
+    if (client) {
+      client.release();
+    }
   }
 }

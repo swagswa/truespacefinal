@@ -56,7 +56,8 @@ function createPool(): Pool {
     ssl: { rejectUnauthorized: false }, // Always use SSL for Supabase
     max: 20,
     idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 2000,
+    connectionTimeoutMillis: 10000, // Увеличиваем до 10 секунд
+    query_timeout: 30000, // Добавляем таймаут для запросов
   });
   
   // In development, store the pool on the global object to prevent multiple instances
