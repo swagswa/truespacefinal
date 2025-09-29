@@ -1,14 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Pool } from 'pg';
+import { getPool } from '@/lib/db';
 import { 
   createNotFoundError,
   createInternalError,
   createValidationError 
 } from '@/lib/api-error-handler';
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-});
 
 // Функция для создания slug из заголовка
 function createSlug(title: string): string {
@@ -30,6 +26,7 @@ function createSlug(title: string): string {
 
 // GET - получить все уроки для админ-панели
 export async function GET(request: NextRequest) {
+  const pool = getPool();
   const client = await pool.connect();
   try {
     const { searchParams } = new URL(request.url);
@@ -136,6 +133,7 @@ export async function GET(request: NextRequest) {
 
 // POST - создать новый урок
 export async function POST(request: NextRequest) {
+  const pool = getPool();
   const client = await pool.connect();
   try {
     const body = await request.json();
@@ -147,7 +145,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Проверка существования подтемы
-    const subtopicQuery = 'SELECT id, title FROM subtopics WHERE id = $1';
+    const subtopicQuery = 'SELECT id, title FROM "Subtopic" WHERE id = $1';
     const subtopicResult = await client.query(subtopicQuery, [parseInt(subtopicId)]);
 
     if (subtopicResult.rows.length === 0) {
@@ -224,6 +222,7 @@ export async function POST(request: NextRequest) {
 
 // PUT - обновить урок
 export async function PUT(request: NextRequest) {
+  const pool = getPool();
   const client = await pool.connect();
   try {
     const body = await request.json();
@@ -235,7 +234,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // Проверка существования урока
-    const existingLessonQuery = 'SELECT * FROM lessons WHERE id = $1';
+    const existingLessonQuery = 'SELECT * FROM "Lesson" WHERE id = $1';
     const existingLessonResult = await client.query(existingLessonQuery, [parseInt(id)]);
 
     if (existingLessonResult.rows.length === 0) {
@@ -246,7 +245,7 @@ export async function PUT(request: NextRequest) {
 
     // Проверка существования подтемы (если изменяется)
     if (subtopicId && subtopicId !== existingLesson.subtopicId) {
-      const subtopicQuery = 'SELECT id FROM subtopics WHERE id = $1';
+      const subtopicQuery = 'SELECT id FROM "Subtopic" WHERE id = $1';
       const subtopicResult = await client.query(subtopicQuery, [parseInt(subtopicId)]);
 
       if (subtopicResult.rows.length === 0) {
@@ -382,6 +381,7 @@ export async function PUT(request: NextRequest) {
 
 // DELETE - удалить урок
 export async function DELETE(request: NextRequest) {
+  const pool = getPool();
   const client = await pool.connect();
   try {
     const { searchParams } = new URL(request.url);
@@ -392,7 +392,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Проверка существования урока
-    const existingLessonQuery = 'SELECT id FROM lessons WHERE id = $1';
+    const existingLessonQuery = 'SELECT id FROM "Lesson" WHERE id = $1';
     const existingLessonResult = await client.query(existingLessonQuery, [parseInt(id)]);
 
     if (existingLessonResult.rows.length === 0) {
