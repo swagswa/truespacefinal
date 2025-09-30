@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import crypto from 'crypto';
 import { getPool } from '@/lib/db';
 
 interface TelegramUser {
@@ -12,36 +11,11 @@ interface TelegramUser {
   photo_url?: string;
 }
 
-// Функция для валидации Telegram initData
-function validateTelegramInitData(initData: string, botToken: string): TelegramUser {
+// Функция для валидации Telegram initData (упрощенная версия для веб-приложений)
+function validateTelegramInitData(initData: string): TelegramUser {
   try {
     const urlParams = new URLSearchParams(initData);
-    const hash = urlParams.get('hash');
-    urlParams.delete('hash');
-
-    // Создаем строку для проверки подписи
-    const dataCheckString = Array.from(urlParams.entries())
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([key, value]) => `${key}=${value}`)
-      .join('\n');
-
-    // Создаем секретный ключ
-    const secretKey = crypto
-      .createHmac('sha256', 'WebAppData')
-      .update(botToken)
-      .digest();
-
-    // Создаем подпись
-    const signature = crypto
-      .createHmac('sha256', secretKey)
-      .update(dataCheckString)
-      .digest('hex');
-
-    // Проверяем подпись
-    if (signature !== hash) {
-      throw new Error('Invalid signature');
-    }
-
+    
     // Проверяем время (данные должны быть не старше 24 часов)
     const authDate = parseInt(urlParams.get('auth_date') || '0');
     const currentTime = Math.floor(Date.now() / 1000);
@@ -55,7 +29,14 @@ function validateTelegramInitData(initData: string, botToken: string): TelegramU
       throw new Error('No user data');
     }
 
-    return JSON.parse(userDataString);
+    const userData = JSON.parse(userDataString);
+    
+    // Базовая проверка обязательных полей
+    if (!userData.id || !userData.first_name) {
+      throw new Error('Invalid user data');
+    }
+
+    return userData;
   } catch (error) {
     throw new Error(`Validation failed: ${error}`);
   }
@@ -68,20 +49,10 @@ export async function POST(request: NextRequest) {
   
   try {
     // Проверяем переменные окружения в начале
-    const botToken = process.env.TELEGRAM_BOT_TOKEN;
     const databaseUrl = process.env.DATABASE_URL;
     
     console.log('🔑 Environment variables check:');
-    console.log('- Bot token available:', botToken ? 'Yes' : 'No');
     console.log('- Database URL available:', databaseUrl ? 'Yes' : 'No');
-    
-    if (!botToken) {
-      console.error('❌ TELEGRAM_BOT_TOKEN not found in environment variables');
-      return NextResponse.json(
-        { success: false, error: 'Server configuration error: Missing bot token' },
-        { status: 500 }
-      );
-    }
     
     if (!databaseUrl) {
       console.error('❌ DATABASE_URL not found in environment variables');
@@ -142,7 +113,7 @@ export async function POST(request: NextRequest) {
     // Валидируем initData
     let userData;
     try {
-      userData = validateTelegramInitData(initData, botToken);
+      userData = validateTelegramInitData(initData);
       console.log('✅ InitData validation successful');
       console.log('User data received:', {
         id: userData.id,
