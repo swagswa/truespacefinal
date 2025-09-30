@@ -73,7 +73,7 @@ export default function ChatPage() {
       } else {
         throw new Error(data.error || 'Произошла ошибка');
       }
-    } catch (error) {
+    } catch (_error) {
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         text: 'Извините, произошла ошибка при обработке вашего запроса. Попробуйте еще раз.',
