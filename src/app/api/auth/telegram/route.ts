@@ -62,78 +62,80 @@ function validateTelegramInitData(initData: string, botToken: string): TelegramU
 }
 
 export async function POST(request: NextRequest) {
+  console.log('🚀 Telegram auth endpoint called');
+  console.log('🌍 Environment:', process.env.NODE_ENV);
+  console.log('📍 Vercel Region:', process.env.VERCEL_REGION || 'local');
+  
   try {
-    console.log('Telegram auth POST request received');
+    // Проверяем переменные окружения в начале
+    const botToken = process.env.TELEGRAM_BOT_TOKEN;
+    const databaseUrl = process.env.DATABASE_URL;
     
-    // Проверяем Content-Type заголовок
+    console.log('🔑 Environment variables check:');
+    console.log('- Bot token available:', botToken ? 'Yes' : 'No');
+    console.log('- Database URL available:', databaseUrl ? 'Yes' : 'No');
+    
+    if (!botToken) {
+      console.error('❌ TELEGRAM_BOT_TOKEN not found in environment variables');
+      return NextResponse.json(
+        { success: false, error: 'Server configuration error: Missing bot token' },
+        { status: 500 }
+      );
+    }
+    
+    if (!databaseUrl) {
+      console.error('❌ DATABASE_URL not found in environment variables');
+      return NextResponse.json(
+        { success: false, error: 'Server configuration error: Missing database URL' },
+        { status: 500 }
+      );
+    }
+
+    // Проверяем Content-Type
     const contentType = request.headers.get('content-type');
     console.log('Content-Type:', contentType);
     
     if (!contentType || !contentType.includes('application/json')) {
-      console.error('Invalid Content-Type. Expected application/json, got:', contentType);
+      console.log('❌ Invalid Content-Type');
       return NextResponse.json(
         { success: false, error: 'Content-Type must be application/json' },
         { status: 400 }
       );
     }
 
-    // Проверяем размер тела запроса
+    // Проверяем Content-Length
     const contentLength = request.headers.get('content-length');
     console.log('Content-Length:', contentLength);
     
     if (!contentLength || parseInt(contentLength) === 0) {
-      console.error('Empty request body detected');
+      console.log('❌ Empty request body');
       return NextResponse.json(
-        { success: false, error: 'Request body cannot be empty' },
-        { status: 400 }
-      );
-    }
-    
-    // Безопасно парсим JSON с обработкой ошибок
-    let requestBody;
-    try {
-      const text = await request.text();
-      console.log('Request text length:', text.length);
-      
-      if (!text.trim()) {
-        console.error('Request body is empty or contains only whitespace');
-        return NextResponse.json(
-          { success: false, error: 'Request body cannot be empty' },
-          { status: 400 }
-        );
-      }
-      
-      requestBody = JSON.parse(text);
-      console.log('Request body parsed successfully');
-    } catch (jsonError) {
-      console.error('JSON parsing error:', jsonError);
-      console.error('Error details:', {
-        name: jsonError instanceof Error ? jsonError.name : 'Unknown',
-        message: jsonError instanceof Error ? jsonError.message : 'Unknown error'
-      });
-      return NextResponse.json(
-        { success: false, error: 'Invalid JSON in request body' },
+        { success: false, error: 'Request body is required' },
         { status: 400 }
       );
     }
 
-    const { initData } = requestBody || {};
-    console.log('InitData received:', initData ? 'Yes (length: ' + initData.length + ')' : 'No');
+    // Парсим JSON
+    let body;
+    try {
+      body = await request.json();
+      console.log('✅ JSON parsed successfully');
+    } catch (parseError) {
+      console.error('❌ JSON parse error:', parseError);
+      return NextResponse.json(
+        { success: false, error: 'Invalid JSON format' },
+        { status: 400 }
+      );
+    }
+
+    const { initData } = body;
+    console.log('InitData received:', initData ? 'Yes' : 'No', initData ? `(length: ${initData.length})` : '');
 
     if (!initData) {
-      console.log('InitData is missing or empty');
+      console.log('❌ Missing initData');
       return NextResponse.json(
         { success: false, error: 'initData is required' },
         { status: 400 }
-      );
-    }
-
-    // Получаем токен бота из переменных окружения
-    const botToken = process.env.TELEGRAM_BOT_TOKEN;
-    if (!botToken) {
-      return NextResponse.json(
-        { success: false, error: 'Bot token not configured' },
-        { status: 500 }
       );
     }
 
@@ -141,7 +143,14 @@ export async function POST(request: NextRequest) {
     let userData;
     try {
       userData = validateTelegramInitData(initData, botToken);
-    } catch (_error) {
+      console.log('✅ InitData validation successful');
+      console.log('User data received:', {
+        id: userData.id,
+        username: userData.username,
+        first_name: userData.first_name
+      });
+    } catch (validationError) {
+      console.error('❌ InitData validation failed:', validationError);
       return NextResponse.json(
         { success: false, error: 'Invalid initData' },
         { status: 401 }
@@ -149,10 +158,17 @@ export async function POST(request: NextRequest) {
     }
 
     // Используем upsert для создания или обновления пользователя
-    const pool = getPool();
-    const client = await pool.connect();
+    console.log('🗄️ Connecting to database...');
+    let pool, client;
     let user;
+    
     try {
+      pool = getPool();
+      console.log('✅ Database pool obtained');
+      
+      client = await pool.connect();
+      console.log('✅ Database client connected');
+      
       const telegramId = userData.id.toString();
       const username = userData.username || null;
       const firstName = userData.first_name || null;
@@ -162,8 +178,8 @@ export async function POST(request: NextRequest) {
       const isPremium = userData.is_premium || false;
       const name = userData.first_name || userData.username || 'Telegram User';
 
-      console.log('Creating/updating user with telegramId:', telegramId);
-      console.log('User data:', { username, firstName, lastName, name });
+      console.log('📝 Creating/updating user with telegramId:', telegramId);
+      console.log('📝 User data:', { username, firstName, lastName, name });
 
       // Используем ON CONFLICT для upsert операции
       const result = await client.query(`
@@ -183,12 +199,27 @@ export async function POST(request: NextRequest) {
       `, [telegramId, username, firstName, lastName, photoUrl, languageCode, isPremium, name]);
 
       user = result.rows[0];
-      console.log('User created/updated successfully:', user ? 'Yes' : 'No');
+      console.log('✅ User created/updated successfully:', user ? 'Yes' : 'No');
       if (user) {
-        console.log('User ID:', user.id, 'TelegramID:', user.telegramId);
+        console.log('👤 User ID:', user.id, 'TelegramID:', user.telegramId);
       }
+    } catch (dbError) {
+      console.error('❌ Database operation failed:', dbError);
+      console.error('Database error details:', {
+        name: dbError instanceof Error ? dbError.name : 'Unknown',
+        message: dbError instanceof Error ? dbError.message : 'Unknown error',
+        code: (dbError as { code?: string })?.code,
+        detail: (dbError as { detail?: string })?.detail,
+        hint: (dbError as { hint?: string })?.hint,
+        position: (dbError as { position?: string })?.position,
+        routine: (dbError as { routine?: string })?.routine
+      });
+      throw dbError; // Re-throw to be caught by outer catch block
     } finally {
-      client.release();
+      if (client) {
+        client.release();
+        console.log('🔓 Database client released');
+      }
     }
 
 
@@ -212,30 +243,48 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Telegram auth error:', error);
-    console.error('Error details:', {
+    console.error('❌ Telegram auth error:', error);
+    console.error('🔍 Error details:', {
       name: error instanceof Error ? error.name : 'Unknown',
       message: error instanceof Error ? error.message : 'Unknown error',
       stack: error instanceof Error ? error.stack : 'No stack trace',
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV,
+      vercelRegion: process.env.VERCEL_REGION || 'local'
     });
     
     // Определяем тип ошибки для более точного ответа
     let statusCode = 500;
     let errorMessage = 'Internal server error';
+    let errorCode = 'UNKNOWN_ERROR';
     
     if (error instanceof Error) {
-      if (error.message.includes('database') || error.message.includes('connection')) {
-        errorMessage = 'Database error';
-        console.error('Database operation failed');
-      } else if (error.message.includes('validation') || error.message.includes('invalid')) {
+      const errorMsg = error.message.toLowerCase();
+      
+      if (errorMsg.includes('database') || errorMsg.includes('connection') || errorMsg.includes('pool')) {
+        errorMessage = 'Database connection error';
+        errorCode = 'DATABASE_ERROR';
+        console.error('💾 Database operation failed');
+      } else if (errorMsg.includes('validation') || errorMsg.includes('invalid')) {
         statusCode = 400;
         errorMessage = 'Validation error';
+        errorCode = 'VALIDATION_ERROR';
+      } else if (errorMsg.includes('timeout')) {
+        errorMessage = 'Request timeout';
+        errorCode = 'TIMEOUT_ERROR';
+      } else if (errorMsg.includes('environment') || errorMsg.includes('config')) {
+        errorMessage = 'Server configuration error';
+        errorCode = 'CONFIG_ERROR';
       }
     }
     
     return NextResponse.json(
-      { success: false, error: errorMessage },
+      { 
+        success: false, 
+        error: errorMessage,
+        code: errorCode,
+        timestamp: new Date().toISOString()
+      },
       { status: statusCode }
     );
   }
