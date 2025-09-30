@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getPool } from '@/lib/db';
+import { Pool } from 'pg';
 
 interface TelegramUser {
   id: number;
@@ -46,6 +46,8 @@ export async function POST(request: NextRequest) {
   console.log('🚀 Telegram auth endpoint called');
   console.log('🌍 Environment:', process.env.NODE_ENV);
   console.log('📍 Vercel Region:', process.env.VERCEL_REGION || 'local');
+  
+  let pool;
   
   try {
 
@@ -117,13 +119,18 @@ export async function POST(request: NextRequest) {
 
     // Используем upsert для создания или обновления пользователя
     console.log('🗄️ Connecting to database...');
-    let pool, client;
+    
+    let client;
     let user;
     
     try {
-      pool = getPool();
-      console.log('✅ Database pool obtained');
-      
+      // Создаем пул соединений с базой данных (как в других рабочих роутах)
+      pool = new Pool({
+        connectionString: process.env.DATABASE_URL,
+        ssl: {
+          rejectUnauthorized: false
+        }
+      });
       client = await pool.connect();
       console.log('✅ Database client connected');
       
@@ -245,14 +252,28 @@ export async function POST(request: NextRequest) {
       },
       { status: statusCode }
     );
+  } finally {
+    // Закрываем пул соединений
+    if (pool) {
+      try {
+        await pool.end();
+        console.log('🔓 Database pool closed');
+      } catch (poolError) {
+        console.error('Error closing pool:', poolError);
+      }
+    }
   }
 }
 
 // GET метод для проверки текущей сессии
 export async function GET(request: NextRequest) {
   let client;
+  let pool;
   try {
-    const pool = getPool();
+    pool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+    });
     client = await pool.connect();
     const telegramId = request.headers.get('authorization')?.replace('Bearer ', '');
 
@@ -306,6 +327,15 @@ export async function GET(request: NextRequest) {
   } finally {
     if (client) {
       client.release();
+    }
+    // Закрываем пул соединений
+    if (pool) {
+      try {
+        await pool.end();
+        console.log('🔓 Database pool closed (GET)');
+      } catch (poolError) {
+        console.error('Error closing pool (GET):', poolError);
+      }
     }
   }
 }
