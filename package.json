@@ -3,7 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
+    "dev": "node start-dev.js",
+    "dev:next": "next dev --turbopack",
+    "dev:bot": "node telegram-bot-polling.js",
+    "dev:webhook": "node setup-telegram-webhook.js",
     "build": "next build --turbopack",
     "start": "next start",
     "lint": "eslint"
