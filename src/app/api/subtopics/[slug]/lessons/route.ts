@@ -8,7 +8,7 @@ import {
 
 // Создаем пул соединений с базой данных
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: process.env.DATABASE_URL || 'postgresql://postgres.digqlqjbdtbwvrgggrnl:50GV5cssgniHFpBg@aws-1-eu-north-1.pooler.supabase.com:6543/postgres',
   ssl: {
     rejectUnauthorized: false
   }

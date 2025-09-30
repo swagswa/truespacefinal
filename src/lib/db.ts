@@ -34,7 +34,9 @@ function getDatabaseUrl(): string {
   }
   
   if (!databaseUrl) {
-    throw new Error('DATABASE_URL is not defined in environment variables');
+    // Use Supabase fallback connection string
+    databaseUrl = 'postgresql://postgres.digqlqjbdtbwvrgggrnl:50GV5cssgniHFpBg@aws-1-eu-north-1.pooler.supabase.com:6543/postgres';
+    console.log('🔄 Using fallback Supabase connection string');
   }
   
   // Log the URL (without password for security)
