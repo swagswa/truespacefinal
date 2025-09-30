@@ -48,19 +48,6 @@ export async function POST(request: NextRequest) {
   console.log('📍 Vercel Region:', process.env.VERCEL_REGION || 'local');
   
   try {
-    // Проверяем переменные окружения в начале
-    const databaseUrl = process.env.DATABASE_URL;
-    
-    console.log('🔑 Environment variables check:');
-    console.log('- Database URL available:', databaseUrl ? 'Yes' : 'No');
-    
-    if (!databaseUrl) {
-      console.error('❌ DATABASE_URL not found in environment variables');
-      return NextResponse.json(
-        { success: false, error: 'Server configuration error: Missing database URL' },
-        { status: 500 }
-      );
-    }
 
     // Проверяем Content-Type
     const contentType = request.headers.get('content-type');
