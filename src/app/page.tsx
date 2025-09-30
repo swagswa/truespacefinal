@@ -4,7 +4,7 @@ import { BeamsBackground } from "@/components/ui/beams-background";
 import { Button } from "@/components/ui/button";
 import { UserSession } from "@/components/ui/user-session";
 import { AuthDebug } from "@/components/debug/AuthDebug";
-import { Loader2, Heart, CheckCircle } from "lucide-react";
+import { Loader2, Heart, CheckCircle, MessageCircle } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useThemes } from "@/lib/hooks/useThemes";
@@ -54,6 +54,15 @@ export default function Home() {
             >
               <CheckCircle className="h-5 w-5 group-hover:scale-110 transition-transform duration-300" />
               <span className="font-medium">Завершенные уроки</span>
+            </Button>
+
+            <Button 
+              onClick={() => router.push('/chat')}
+              variant="outline"
+              className="group flex items-center space-x-3 bg-purple-500/10 border-purple-500/30 hover:bg-purple-500/20 hover:border-purple-500/50 text-purple-400 hover:text-purple-300 transition-all duration-300 px-6 py-3"
+            >
+              <MessageCircle className="h-5 w-5 group-hover:scale-110 transition-transform duration-300" />
+              <span className="font-medium">Чат с ИИ</span>
             </Button>
           </div>
 
