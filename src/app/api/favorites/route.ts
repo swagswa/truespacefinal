@@ -1,14 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Pool } from 'pg';
+import { getPool } from '@/lib/db';
 import { validateLessonId, getUserFromRequest } from '@/lib/user-utils';
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || 'postgresql://postgres.digqlqjbdtbwvrgggrnl:50GV5cssgniHFpBg@aws-1-eu-north-1.pooler.supabase.com:6543/postgres'
-});
 
 // API route for managing user favorites
 
 export async function GET(request: NextRequest) {
+  const pool = getPool();
   const client = await pool.connect();
   try {
     const user = await getUserFromRequest(request);
@@ -18,12 +15,12 @@ export async function GET(request: NextRequest) {
     }
 
     const result = await client.query(`
-      SELECT lesson_id 
-      FROM "UserFavoriteLesson" 
-      WHERE user_id = $1
+      SELECT "lessonId" 
+      FROM user_favorite_lessons 
+      WHERE "userId" = $1
     `, [user.id]);
 
-    const favoriteIds = result.rows.map((row) => row.lesson_id.toString());
+    const favoriteIds = result.rows.map((row) => row.lessonId.toString());
 
     return NextResponse.json({ 
       success: true, 
@@ -41,6 +38,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const pool = getPool();
   const client = await pool.connect();
   try {
     const { lessonId } = await request.json();
@@ -66,19 +64,19 @@ export async function POST(request: NextRequest) {
 
     // Upsert favorite (insert if not exists, do nothing if exists)
     await client.query(`
-      INSERT INTO "UserFavoriteLesson" (user_id, lesson_id, created_at, updated_at)
-      VALUES ($1, $2, NOW(), NOW())
-      ON CONFLICT (user_id, lesson_id) DO NOTHING
+      INSERT INTO user_favorite_lessons ("userId", "lessonId", "createdAt")
+      VALUES ($1, $2, NOW())
+      ON CONFLICT ("userId", "lessonId") DO NOTHING
     `, [user.id, validatedLessonId]);
 
     // Get updated favorites list
     const favoritesResult = await client.query(`
-      SELECT lesson_id 
-      FROM "UserFavoriteLesson" 
-      WHERE user_id = $1
+      SELECT "lessonId" 
+      FROM user_favorite_lessons 
+      WHERE "userId" = $1
     `, [user.id]);
 
-    const favoriteIds = favoritesResult.rows.map((row) => row.lesson_id.toString());
+    const favoriteIds = favoritesResult.rows.map((row) => row.lessonId.toString());
 
     return NextResponse.json({ 
       success: true, 
@@ -96,6 +94,7 @@ export async function POST(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
+  const pool = getPool();
   const client = await pool.connect();
   try {
     const { lessonId } = await request.json();
@@ -112,18 +111,18 @@ export async function DELETE(request: NextRequest) {
 
     // Delete favorite
     await client.query(`
-      DELETE FROM "UserFavoriteLesson" 
-      WHERE user_id = $1 AND lesson_id = $2
+      DELETE FROM user_favorite_lessons 
+      WHERE "userId" = $1 AND "lessonId" = $2
     `, [user.id, validatedLessonId]);
 
     // Get updated favorites list
     const favoritesResult = await client.query(`
-      SELECT lesson_id 
-      FROM "UserFavoriteLesson" 
-      WHERE user_id = $1
+      SELECT "lessonId" 
+      FROM user_favorite_lessons 
+      WHERE "userId" = $1
     `, [user.id]);
 
-    const favoriteIds = favoritesResult.rows.map((row) => row.lesson_id.toString());
+    const favoriteIds = favoritesResult.rows.map((row) => row.lessonId.toString());
 
     return NextResponse.json({ 
       success: true, 

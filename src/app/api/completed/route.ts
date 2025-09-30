@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
 
     const userCompletionsResult = await client.query(`
       SELECT "lessonId", "completedAt"
-      FROM "UserLessonCompletion" 
+      FROM user_lesson_completions 
       WHERE "userId" = $1
     `, [user.id]);
 
@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
 
     // Mark lesson as completed using UPSERT (INSERT ... ON CONFLICT)
     await client.query(`
-      INSERT INTO "UserLessonCompletion" ("userId", "lessonId", "completedAt")
+      INSERT INTO user_lesson_completions ("userId", "lessonId", "completedAt")
       VALUES ($1, $2, NOW())
       ON CONFLICT ("userId", "lessonId") 
       DO UPDATE SET "completedAt" = NOW()
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
     // Return updated list of completed lessons
     const userCompletionsResult = await client.query(`
       SELECT "lessonId", "completedAt"
-      FROM "UserLessonCompletion" 
+      FROM user_lesson_completions 
       WHERE "userId" = $1
     `, [user.id]);
 
@@ -119,14 +119,14 @@ export async function DELETE(request: NextRequest) {
 
     // Remove lesson completion
     await client.query(`
-      DELETE FROM "UserLessonCompletion" 
+      DELETE FROM user_lesson_completions 
       WHERE "userId" = $1 AND "lessonId" = $2
     `, [user.id, validatedLessonId]);
 
     // Return updated list of completed lessons
     const userCompletionsResult = await client.query(`
       SELECT "lessonId", "completedAt"
-      FROM "UserLessonCompletion" 
+      FROM user_lesson_completions 
       WHERE "userId" = $1
     `, [user.id]);
 

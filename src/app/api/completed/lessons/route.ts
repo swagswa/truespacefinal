@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
         t.slug as theme_slug,
         t.icon as theme_icon,
         ulc."completedAt"
-      FROM "UserLessonCompletion" ulc
+      FROM user_lesson_completions ulc
       JOIN "Lesson" l ON ulc."lessonId" = l.id
       JOIN "Subtopic" s ON l."subtopicId" = s.id
       JOIN "Theme" t ON s."themeId" = t.id

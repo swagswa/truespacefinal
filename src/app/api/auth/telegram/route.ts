@@ -162,6 +162,9 @@ export async function POST(request: NextRequest) {
       const isPremium = userData.is_premium || false;
       const name = userData.first_name || userData.username || 'Telegram User';
 
+      console.log('Creating/updating user with telegramId:', telegramId);
+      console.log('User data:', { username, firstName, lastName, name });
+
       // Используем ON CONFLICT для upsert операции
       const result = await client.query(`
         INSERT INTO users ("telegramId", "username", "firstName", "lastName", "photoUrl", "languageCode", "isPremium", "name", "createdAt", "updatedAt")
@@ -180,6 +183,10 @@ export async function POST(request: NextRequest) {
       `, [telegramId, username, firstName, lastName, photoUrl, languageCode, isPremium, name]);
 
       user = result.rows[0];
+      console.log('User created/updated successfully:', user ? 'Yes' : 'No');
+      if (user) {
+        console.log('User ID:', user.id, 'TelegramID:', user.telegramId);
+      }
     } finally {
       client.release();
     }
@@ -240,32 +247,33 @@ export async function GET(request: NextRequest) {
   try {
     const pool = getPool();
     client = await pool.connect();
-    const sessionId = request.headers.get('authorization')?.replace('Bearer ', '');
+    const telegramId = request.headers.get('authorization')?.replace('Bearer ', '');
 
-    if (!sessionId) {
+    if (!telegramId) {
       return NextResponse.json(
-        { success: false, error: 'No session token' },
-        { status: 401 }
+        { success: false, authenticated: false, error: 'No session token' },
+        { status: 200 }
       );
     }
 
     const result = await client.query(`
       SELECT id, "telegramId", username, "firstName", "lastName", name, "photoUrl", "languageCode", "isPremium"
       FROM users
-      WHERE "sessionId" = $1
-    `, [sessionId]);
+      WHERE "telegramId" = $1
+    `, [telegramId]);
 
     const user = result.rows[0];
 
     if (!user) {
       return NextResponse.json(
-        { success: false, error: 'Invalid session' },
-        { status: 401 }
+        { success: false, authenticated: false, error: 'Invalid session' },
+        { status: 200 }
       );
     }
 
     return NextResponse.json({
       success: true,
+      authenticated: true,
       data: { user }
     });
 

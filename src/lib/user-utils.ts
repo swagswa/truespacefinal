@@ -2,41 +2,35 @@ import { getPool } from '@/lib/db';
 import { NextRequest } from 'next/server';
 
 /**
- * Получает sessionId из заголовков запроса
+ * Получает telegramId из заголовков запроса
  * @param request - NextRequest объект
- * @returns sessionId или 'anonymous' по умолчанию
+ * @returns telegramId или null
  */
-export function getSessionId(request: NextRequest): string {
-  return request.headers.get('x-session-id') || 'anonymous';
+export function getTelegramId(request: NextRequest): string | null {
+  const authHeader = request.headers.get('authorization');
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const telegramId = authHeader.substring(7);
+    return telegramId;
+  }
+  return null;
 }
 
 /**
- * Получает или создает пользователя по sessionId
- * @param sessionId - идентификатор сессии
- * @returns объект пользователя
+ * Получает пользователя по telegramId
+ * @param telegramId - идентификатор Telegram
+ * @returns объект пользователя или null
  */
-export async function getOrCreateUser(sessionId: string) {
+export async function getUserByTelegramId(telegramId: string) {
   const pool = getPool();
   const client = await pool.connect();
   
   try {
-    // Сначала пытаемся найти пользователя
-    const existingUserResult = await client.query(
-      'SELECT id, "sessionId", "createdAt", "updatedAt" FROM users WHERE "sessionId" = $1',
-      [sessionId]
+    const result = await client.query(
+      'SELECT id, "telegramId", username, "firstName", "lastName", name, "photoUrl", "languageCode", "isPremium", "createdAt", "updatedAt" FROM users WHERE "telegramId" = $1',
+      [telegramId]
     );
 
-    if (existingUserResult.rows.length > 0) {
-      return existingUserResult.rows[0];
-    }
-
-    // Если пользователь не найден, создаем нового
-    const newUserResult = await client.query(
-      'INSERT INTO users ("sessionId", "createdAt", "updatedAt") VALUES ($1, NOW(), NOW()) RETURNING id, "sessionId", "createdAt", "updatedAt"',
-      [sessionId]
-    );
-
-    return newUserResult.rows[0];
+    return result.rows.length > 0 ? result.rows[0] : null;
   } finally {
     client.release();
   }
@@ -45,11 +39,14 @@ export async function getOrCreateUser(sessionId: string) {
 /**
  * Получает пользователя из запроса
  * @param request - NextRequest объект
- * @returns объект пользователя
+ * @returns объект пользователя или null
  */
 export async function getUserFromRequest(request: NextRequest) {
-  const sessionId = getSessionId(request);
-  return await getOrCreateUser(sessionId);
+  const telegramId = getTelegramId(request);
+  if (!telegramId) {
+    return null;
+  }
+  return await getUserByTelegramId(telegramId);
 }
 
 /**

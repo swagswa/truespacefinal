@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
         t.slug as theme_slug,
         t.icon as theme_icon,
         ufl."createdAt" as favorite_date
-      FROM "UserFavoriteLesson" ufl
+      FROM user_favorite_lessons ufl
       JOIN "Lesson" l ON ufl."lessonId" = l.id
       JOIN "Subtopic" s ON l."subtopicId" = s.id
       JOIN "Theme" t ON s."themeId" = t.id

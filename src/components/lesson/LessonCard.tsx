@@ -30,7 +30,8 @@ export function LessonCard({
   const [isExpanded, setIsExpanded] = useState(false);
 
   // Функция для сокращения описания
-  const truncateDescription = (text: string, maxLength: number = 30) => {
+  const truncateDescription = (text: string | null | undefined, maxLength: number = 30) => {
+    if (!text) return 'Описание отсутствует';
     if (text.length <= maxLength) return text;
     return text.substring(0, maxLength) + '...';
   };
@@ -71,7 +72,7 @@ export function LessonCard({
                 {lesson.title}
               </h3>
               <p className="text-sm text-gray-400 mb-2">
-                {isExpanded ? lesson.description : truncateDescription(lesson.description)}
+                {isExpanded ? (lesson.description || 'Описание отсутствует') : truncateDescription(lesson.description)}
               </p>
               <div className="flex items-center text-xs text-gray-500">
                 <Clock className="h-3 w-3 mr-1" />
@@ -82,7 +83,7 @@ export function LessonCard({
           
           {/* Кнопки действий */}
           <div className="flex items-center space-x-1 ml-2">
-            {lesson.description.length > 30 && (
+            {lesson.description && lesson.description.length > 30 && (
               <Button
                 onClick={() => setIsExpanded(!isExpanded)}
                 variant="ghost"

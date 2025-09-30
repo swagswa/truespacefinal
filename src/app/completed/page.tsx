@@ -51,9 +51,19 @@ export default function CompletedPage() {
     setLoading(true);
     
     try {
+      // Get telegramId from localStorage for Authorization header
+      const telegramId = typeof window !== 'undefined' 
+        ? localStorage.getItem('telegramId') 
+        : null;
+      
+      if (!telegramId) {
+        setLoading(false);
+        return;
+      }
+      
       const response = await fetch('/api/completed/lessons', {
         headers: {
-          'x-session-id': sessionId,
+          'Authorization': `Bearer ${telegramId}`,
         },
       });
       
